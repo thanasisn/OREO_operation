@@ -42,104 +42,104 @@ filenames   = next(walk(mypath), (None, None, []))[2]  # [] if no file
 # (a wider domain is used here to account for (1) all fluxes and (2) the broader domain, and N.Atlandic Dust)
 
 ### CLIMPACT II
-lon_array       = np.arange(-10,45)
-lat_array       = np.arange(30,50)
-DOMOS_lon_array = np.arange(-10,45,5) 
-DOMOS_lat_array = np.arange(30,50,2)
+lon_array       = np.arange(-10, 45)
+lat_array       = np.arange( 30, 50)
+DOMOS_lon_array = np.arange(-10, 45, 5)
+DOMOS_lat_array = np.arange( 30, 50, 2)
 
 # ## DOMOS ####
 # lon_array       = np.arange(-125,25)
 # lat_array       = np.arange(-60,42)
 # DOMOS_lon_array = np.arange(-125,25,5) 
-#DOMOS_lat_array = np.arange(-62,42,2)
+# DOMOS_lat_array = np.arange(-62,42,2)
 
 for count_filename,filename in enumerate(filenames):
-    
+
     file        = mypath + '\\' + filename
     dataset     = nc.Dataset(file) 
     if int(filename[0:4]) < 2007:
         continue
     print(file)
     
-    # ERA spatial reference:
+
     # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
     # last visit: 03/02/2022.
     # ERA longitude from 0->360 deg to -180->180 deg.    
     dataset_latitude     = dataset['latitude'][:]
-    ERA5_idx_lat              = np.where((dataset_latitude >= lat_array[0]) & (dataset_latitude <= lat_array[-1]+1))
-    ERA5_idx_lat              = np.ravel(ERA5_idx_lat)
+    ERA5_idx_lat         = np.where((dataset_latitude >= lat_array[0]) & (dataset_latitude <= lat_array[-1]+1))
+    ERA5_idx_lat         = np.ravel(ERA5_idx_lat)
     dataset_latitude     = dataset['latitude'][ERA5_idx_lat]
-    
+
     dataset_longitude    = dataset['longitude'][:] 
     for lon in dataset_longitude:
         if lon >= 180:
             dataset_longitude[np.where(lon == dataset_longitude)] = lon - 360
-    ERA5_idx_lon              = np.where((dataset_longitude >= lon_array[0]) & (dataset_longitude <= lon_array[-1]+1))
-    ERA5_idx_lon              = np.ravel(ERA5_idx_lon)
+    ERA5_idx_lon         = np.where((dataset_longitude >= lon_array[0]) & (dataset_longitude <= lon_array[-1]+1))
+    ERA5_idx_lon         = np.ravel(ERA5_idx_lon)
     dataset_longitude    = dataset['longitude'][ERA5_idx_lon] 
     for lon in dataset_longitude:
         if lon >= 180:
             dataset_longitude[np.where(lon == dataset_longitude)] = lon - 360  
-            
+
     dataset_time         = dataset['time'][:]
     dataset_level        = dataset['level'][:]
     dataset_u            = dataset['u'][:,:,ERA5_idx_lat,ERA5_idx_lon]
     dataset_v            = dataset['v'][:,:,ERA5_idx_lat,ERA5_idx_lon]
-    
+
     # ERA convert Geopotenial to geometric height (a.m.s.l.):
     # https://unidata.github.io/MetPy/latest/api/generated/metpy.calc.geopotential_to_height.html
     # last access: 03/02/2022. 
     dataset_geo_units    = dataset['z'].units
-    dataset_geopotential = dataset['z'][:,:,ERA5_idx_lat,ERA5_idx_lon]
-    dataset_geopotential = units.Quantity(dataset_geopotential,dataset_geo_units)  
+    dataset_geopotential = dataset['z'][:,:,ERA5_idx_lat, ERA5_idx_lon]
+    dataset_geopotential = units.Quantity(dataset_geopotential, dataset_geo_units)
     dataset_height       = metpy.calc.geopotential_to_height(dataset_geopotential)
     dataset_height       = np.array(dataset_height)
-    
-    # File of previous year - to read Devember for DJF season
+
+    # File of previous year - to read December for DJF season
     Year_of_Interest_previous = mypath + '\\' + str(int(filename[0:4])-1)+'.nc'
-    dataset_ΙΙ = nc.Dataset(Year_of_Interest_previous) 
+    dataset_ΙΙ = nc.Dataset(Year_of_Interest_previous)
     dataset_u_ΙΙ            = dataset_ΙΙ['u'][:,:,ERA5_idx_lat,ERA5_idx_lon]
     dataset_v_ΙΙ            = dataset_ΙΙ['v'][:,:,ERA5_idx_lat,ERA5_idx_lon]
     dataset_geopotential_ΙΙ = dataset_ΙΙ['z'][:,:,ERA5_idx_lat,ERA5_idx_lon]
-    dataset_geopotential_ΙΙ = units.Quantity(dataset_geopotential_ΙΙ,dataset_geo_units)  
+    dataset_geopotential_ΙΙ = units.Quantity(dataset_geopotential_ΙΙ,dataset_geo_units)
     dataset_height_ΙΙ       = metpy.calc.geopotential_to_height(dataset_geopotential_ΙΙ)
-    dataset_height_ΙΙ       = np.array(dataset_height_ΙΙ)          
+    dataset_height_ΙΙ       = np.array(dataset_height_ΙΙ)
 
     # ERA time:
     # units     = hours since 1900-01-01 00:00:00.0 
     # long_name = time 
-    # calendar  = gregorian     
+    # calendar  = gregorian
     # loop to produce seasonal-mean files
-    
-    seasons = ['DJF','MAM','JJA','SON']
-    for season_idx,season in enumerate(seasons):
+
+    seasons = ['DJF', 'MAM', 'JJA', 'SON']
+    for season_idx, season in enumerate(seasons):
 
         # initializing: u-mean,SD / v-mean,SD / w-mean,SD / z-mean for 1x1 deg2 grid resolution.
-        u_total_mean  = np.empty((len(DOMOS_lon_array),len(DOMOS_lat_array),len(dataset_level)))
-        u_total_SD    = np.empty((len(DOMOS_lon_array),len(DOMOS_lat_array),len(dataset_level)))
-        v_total_mean  = np.empty((len(DOMOS_lon_array),len(DOMOS_lat_array),len(dataset_level)))
-        v_total_SD    = np.empty((len(DOMOS_lon_array),len(DOMOS_lat_array),len(dataset_level)))    
-        z_total_mean  = np.empty((len(DOMOS_lon_array),len(DOMOS_lat_array),len(dataset_level)))
+        u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
+        u_total_SD   = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
+        v_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
+        v_total_SD   = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
+        z_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
 
         # computing and saving: u-mean,SD / v-mean,SD / z-mean for 2x5 deg2 grid resolution.
         for lon in DOMOS_lon_array:
 
-            idx_lon = np.where((dataset_longitude >= lon) & (dataset_longitude <= lon+5))
-            idx_lon = np.ravel(idx_lon)            
-            temp_u = dataset_u[:,:,:,idx_lon]
-            temp_v = dataset_v[:,:,:,idx_lon]
-            temp_height = dataset_height[:,:,:,idx_lon]
+            idx_lon        = np.where((dataset_longitude >= lon) & (dataset_longitude <= lon+5))
+            idx_lon        = np.ravel(idx_lon)
+            temp_u         = dataset_u[:,:,:,idx_lon]
+            temp_v         = dataset_v[:,:,:,idx_lon]
+            temp_height    = dataset_height[:,:,:,idx_lon]
             temp_u_II      = dataset_u_ΙΙ[:,:,:,idx_lon]
             temp_v_II      = dataset_v_ΙΙ[:,:,:,idx_lon]
             temp_height_II = dataset_height_ΙΙ[:,:,:,idx_lon]
-            
+
             for lat in DOMOS_lat_array:
-                
+
                 idx_lat = np.where((dataset_latitude >= lat) & (dataset_latitude <= lat+2))
                 idx_lat = np.ravel(idx_lat)
-                
+
                 if season == 'DJF':
-                    Months_of_Interest_idx = [0,1]
+                    Months_of_Interest_idx = [0, 1]
                     u_I  = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v_I  = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     z_I  = temp_height[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]                     
@@ -150,60 +150,60 @@ for count_filename,filename in enumerate(filenames):
                     v    = np.concatenate([v_I,v_II], axis=0) 
                     z    = np.concatenate([z_I,z_II], axis=0) 
                 if season == 'MAM':
-                    Months_of_Interest_idx = [3,5]
+                    Months_of_Interest_idx = [3, 5]
                     u = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     z = temp_height[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]                     
                 if season == 'JJA':
-                    Months_of_Interest_idx = [6,8]
+                    Months_of_Interest_idx = [6, 8]
                     u = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     z = temp_height[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]                     
                 if season == 'SON':
-                    Months_of_Interest_idx = [9,11]                 
+                    Months_of_Interest_idx = [9, 11]                 
                     u = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     z = temp_height[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]            
-                
-                u_total = [u[:,i,:,:].mean() for i in range(u.shape[1]) ]
-                v_total = [v[:,i,:,:].mean() for i in range(v.shape[1]) ]
-                z_total = [z[:,i,:,:].mean() for i in range(z.shape[1]) ]
+
+                u_total = [u[:,i,:,:].mean() for i in range(u.shape[1])]
+                v_total = [v[:,i,:,:].mean() for i in range(v.shape[1])]
+                z_total = [z[:,i,:,:].mean() for i in range(z.shape[1])]
                 for idx_level,lev in enumerate(dataset_level):
                     u_total_mean[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = u_total[idx_level]
                     v_total_mean[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = v_total[idx_level]
                     z_total_mean[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = z_total[idx_level]   
-                    
-                u_total = [u[:,i,:,:].std() for i in range(u.shape[1]) ]
-                v_total = [v[:,i,:,:].std() for i in range(v.shape[1]) ]
-                z_total = [z[:,i,:,:].std() for i in range(z.shape[1]) ]
+
+                u_total = [u[:,i,:,:].std() for i in range(u.shape[1])]
+                v_total = [v[:,i,:,:].std() for i in range(v.shape[1])]
+                z_total = [z[:,i,:,:].std() for i in range(z.shape[1])]
                 for idx_level,lev in enumerate(dataset_level):
                     u_total_SD[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = u_total[idx_level]
                     v_total_SD[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = v_total[idx_level]
 
-        ######################################################################            
+        ######################################################################
         #  --- Saving ERA u, v, w, height monthly mean dataset as NetCDF --- #
         ######################################################################
 
-        # creating nc. filename and initiallizing:                 
+        # creating nc. filename and initializing:
         fn           = output_path + '\\' + filename[0:4] + '_' + season + '.nc'
         ds           = nc.Dataset(fn, 'w', format='NETCDF4')
-        
+
         # create nc. dimensions:
         longitude    = DOMOS_lon_array + 2.5
-        latitude     = DOMOS_lat_array + 1        
+        latitude     = DOMOS_lat_array + 1
         lev          = ds.createDimension('lev',  len(dataset_level))
         lat          = ds.createDimension('lat',  len(latitude)) 
         lon          = ds.createDimension('lon',  len(longitude))
 
         # create nc. variables:
-        lats         = ds.createVariable('Latitude', 'f4',   ('lat',),            zlib=True)   
-        lons         = ds.createVariable('Longitude','f4',   ('lon',),            zlib=True)   
-        Height       = ds.createVariable('Height',   'f4',   ('lon','lat','lev',),zlib=True)   
-        U            = ds.createVariable('U',    np.float64, ('lon','lat','lev',),zlib=True)   
-        U_SD         = ds.createVariable('U_SD', np.float64, ('lon','lat','lev',),zlib=True)   
-        V            = ds.createVariable('V',    np.float64, ('lon','lat','lev',),zlib=True)   
-        V_SD         = ds.createVariable('V_SD', np.float64, ('lon','lat','lev',),zlib=True)          
-        
+        lats         = ds.createVariable('Latitude', 'f4',   ('lat',),            zlib=True)
+        lons         = ds.createVariable('Longitude','f4',   ('lon',),            zlib=True)
+        Height       = ds.createVariable('Height',   'f4',   ('lon','lat','lev',),zlib=True)
+        U            = ds.createVariable('U',    np.float64, ('lon','lat','lev',),zlib=True)
+        U_SD         = ds.createVariable('U_SD', np.float64, ('lon','lat','lev',),zlib=True)
+        V            = ds.createVariable('V',    np.float64, ('lon','lat','lev',),zlib=True)
+        V_SD         = ds.createVariable('V_SD', np.float64, ('lon','lat','lev',),zlib=True)
+
         # nc. variables' units
         lats.units   = 'degrees_north'
         lons.units   = 'degrees_east'
@@ -212,7 +212,7 @@ for count_filename,filename in enumerate(filenames):
         U_SD.units   = 'm s**-1'
         V.units      = 'm s**-1'
         V_SD.units   = 'm s**-1'
-        
+
         # nc. variables' "long names":
         lats.long_name   = 'Latitude'
         lons.long_name   = 'Longitude'
@@ -227,20 +227,20 @@ for count_filename,filename in enumerate(filenames):
         U.standard_name      = 'eastward_wind'
         U_SD.standard_name   = 'eastward_wind_SD'
         V.standard_name      = 'northward_wind'
-        V_SD.standard_name   = 'northward_wind_SD'        
+        V_SD.standard_name   = 'northward_wind_SD'
 
-        # nc. saving datasets           
+        # nc. saving datasets
         lats[:]      = latitude
         lons[:]      = longitude
         Height[:]    = z_total_mean
         U[:]         = u_total_mean
-        U_SD[:]      = u_total_SD        
+        U_SD[:]      = u_total_SD
         V[:]         = v_total_mean
         V_SD[:]      = v_total_SD
 
-        ds.close()                
-        
+        ds.close()
+
         print("End of: " + fn)
-  
+
 # How much time it took to execute the script in minutes:
-print(datetime.now() - startTime)      
+print(datetime.now() - startTime)
