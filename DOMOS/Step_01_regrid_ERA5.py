@@ -6,7 +6,7 @@ This script uses as input the ERA5 u, v, w, lat, lon, and geopotential and perfo
     (a) converts geopotential to geometric height a.m.s.l.
     (b) regrids u, v, w wind components into a regular 1x1 deg2 grid.
 Here the script is applied for DOMOS domain.
-@author: proestakis
+@author: proestakis, thanasisn
 """
 
 import os
@@ -48,12 +48,15 @@ if not os.path.isdir(cnf.ERA5.path_regrid):
 # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview
 
 # CLIMPACT
-mypath      = cnf.ERA5.path_raw
+# mypath      = cnf.ERA5.path_raw
 output_path = cnf.ERA5.path_regrid
+
 
 # checking if input files exist in input dir.
 filenames = glob.glob(cnf.ERA5.path_raw + "/ERA5_*_%sN%sS%sW%sE.nc" % (cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East))
-if len(filenames) < 1 :
+filenames.sort()
+
+if len(filenames) < 1:
     sys.exit("\nNo input file found in " + cnf.ERA5.path_raw + " !\n")
 
 
@@ -91,31 +94,30 @@ DOMOS_lat_array = np.arange(cnf.ERA5.West,  cnf.ERA5.East,  2)
 
 
 
-
-for count_filename, filein in enumerate(filenames):
+# process raw ERA5 files
+for filein in filenames:
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
     ## limit data range
     if not cnf.Range.start <= yyyy <= cnf.Range.until:
         continue
-     
+
     dataset = nc.Dataset(filein)
     print("Processing: ", filein)
 
     # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
-    # last visit: 03/02/2022.
-    # ERA longitude from 0->360 deg to -180->180 deg.    
+    # ERA longitude from 0->360 deg to -180->180 deg.
     dataset_latitude     = dataset['latitude'][:]
     ERA5_idx_lat         = np.where((dataset_latitude >= lat_array[0]) & (dataset_latitude <= lat_array[-1]+1))
     ERA5_idx_lat         = np.ravel(ERA5_idx_lat)
     dataset_latitude     = dataset['latitude'][ERA5_idx_lat]
 
-    dataset_longitude    = dataset['longitude'][:] 
+    dataset_longitude    = dataset['longitude'][:]
     for lon in dataset_longitude:
         if lon >= 180:
             dataset_longitude[np.where(lon == dataset_longitude)] = lon - 360
     ERA5_idx_lon         = np.where((dataset_longitude >= lon_array[0]) & (dataset_longitude <= lon_array[-1]+1))
     ERA5_idx_lon         = np.ravel(ERA5_idx_lon)
-    dataset_longitude    = dataset['longitude'][ERA5_idx_lon] 
+    dataset_longitude    = dataset['longitude'][ERA5_idx_lon]
     for lon in dataset_longitude:
         if lon >= 180:
             dataset_longitude[np.where(lon == dataset_longitude)] = lon - 360
@@ -125,25 +127,24 @@ for count_filename, filein in enumerate(filenames):
     dataset_u            = dataset['u'][:,:,ERA5_idx_lat,ERA5_idx_lon]
     dataset_v            = dataset['v'][:,:,ERA5_idx_lat,ERA5_idx_lon]
 
-    sys.exit("wait")
-    
+
     # ERA convert Geopotenial to geometric height (a.m.s.l.):
     # https://unidata.github.io/MetPy/latest/api/generated/metpy.calc.geopotential_to_height.html
-    # last access: 03/02/2022.
-    level_units  = dataset['pressure_level'].units
-    level_values = dataset['pressure_level'][:]
-    level_geopot = units.Quantity(level_values, level_units)
-    metpy.calc.geopotential_to_height(level_geopot)
-    
     dataset_geo_units    = dataset['z'].units
     dataset_geopotential = dataset['z'][:,:,ERA5_idx_lat, ERA5_idx_lon]
     dataset_geopotential = units.Quantity(dataset_geopotential, dataset_geo_units)
     dataset_height       = metpy.calc.geopotential_to_height(dataset_geopotential)
     dataset_height       = np.array(dataset_height)
 
+
     # File of previous year - to read December for DJF season
-    Year_of_Interest_previous = mypath + '\\' + str(int(filename[0:4])-1)+'.nc'
-    dataset_ΙΙ = nc.Dataset(Year_of_Interest_previous)
+    previous_file = list(filter(lambda x:'ERA5_'+str(yyyy-1) in x, filenames))
+    if (len(previous_file)!=1):
+        print("SKIP! No previous year file exist\n")
+        continue
+
+    # Year_of_Interest_previous = mypath + '\\' + str(int(filename[0:4])-1)+'.nc'
+    dataset_ΙΙ              = nc.Dataset(previous_file[0])
     dataset_u_ΙΙ            = dataset_ΙΙ['u'][:,:,ERA5_idx_lat,ERA5_idx_lon]
     dataset_v_ΙΙ            = dataset_ΙΙ['v'][:,:,ERA5_idx_lat,ERA5_idx_lon]
     dataset_geopotential_ΙΙ = dataset_ΙΙ['z'][:,:,ERA5_idx_lat,ERA5_idx_lon]
@@ -157,7 +158,7 @@ for count_filename, filein in enumerate(filenames):
     # calendar  = gregorian
     # loop to produce seasonal-mean files
 
-    seasons = ['DJF', 'MAM', 'JJA', 'SON']
+    seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
     for season_idx, season in enumerate(seasons):
 
         # initializing: u-mean,SD / v-mean,SD / w-mean,SD / z-mean for 1x1 deg2 grid resolution.
@@ -170,7 +171,7 @@ for count_filename, filein in enumerate(filenames):
         # computing and saving: u-mean,SD / v-mean,SD / z-mean for 2x5 deg2 grid resolution.
         for lon in DOMOS_lon_array:
 
-            idx_lon        = np.where((dataset_longitude >= lon) & (dataset_longitude <= lon+5))
+            idx_lon        = np.where((dataset_longitude >= lon) & (dataset_longitude <= lon + 5))
             idx_lon        = np.ravel(idx_lon)
             temp_u         = dataset_u[:,:,:,idx_lon]
             temp_v         = dataset_v[:,:,:,idx_lon]
@@ -181,10 +182,10 @@ for count_filename, filein in enumerate(filenames):
 
             for lat in DOMOS_lat_array:
 
-                idx_lat = np.where((dataset_latitude >= lat) & (dataset_latitude <= lat+2))
+                idx_lat = np.where((dataset_latitude >= lat) & (dataset_latitude <= lat + 2))
                 idx_lat = np.ravel(idx_lat)
 
-                if season == 'DJF':
+                if season == 'Q1_DJF':
                     Months_of_Interest_idx = [0, 1]
                     u_I  = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v_I  = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
@@ -192,20 +193,20 @@ for count_filename, filein in enumerate(filenames):
                     u_II = temp_u_II[11:12,:,idx_lat,:]
                     v_II = temp_v_II[11:12,:,idx_lat,:]
                     z_II = temp_height_II[11:12,:,idx_lat,:]
-                    u    = np.concatenate([u_I,u_II], axis=0)                    
-                    v    = np.concatenate([v_I,v_II], axis=0) 
-                    z    = np.concatenate([z_I,z_II], axis=0) 
-                if season == 'MAM':
+                    u    = np.concatenate([u_I,u_II], axis=0)
+                    v    = np.concatenate([v_I,v_II], axis=0)
+                    z    = np.concatenate([z_I,z_II], axis=0)
+                if season == 'Q2_MAM':
                     Months_of_Interest_idx = [3, 5]
                     u = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     z = temp_height[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
-                if season == 'JJA':
+                if season == 'Q3_JJA':
                     Months_of_Interest_idx = [6, 8]
                     u = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     z = temp_height[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
-                if season == 'SON':
+                if season == 'Q4_SON':
                     Months_of_Interest_idx = [9, 11]
                     u = temp_u[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
                     v = temp_v[Months_of_Interest_idx[0]:Months_of_Interest_idx[1]+1,:,idx_lat,:]
@@ -229,16 +230,17 @@ for count_filename, filein in enumerate(filenames):
         ######################################################################
         #  --- Saving ERA u, v, w, height monthly mean dataset as NetCDF --- #
         ######################################################################
-
+        
         # creating nc. filename and initializing:
-        fn           = output_path + '\\' + filename[0:4] + '_' + season + '.nc'
+        fn = cnf.ERA5.path_regrid + "/ERA5_%s_%s_%sN%sS%sW%sE.nc" % (yyyy, season, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
+        # fn           = output_path + '\\' + filename[0:4] + '_' + season + '.nc'
         ds           = nc.Dataset(fn, 'w', format='NETCDF4')
 
         # create nc. dimensions:
         longitude    = DOMOS_lon_array + 2.5
         latitude     = DOMOS_lat_array + 1
         lev          = ds.createDimension('lev', len(dataset_level))
-        lat          = ds.createDimension('lat', len(latitude)) 
+        lat          = ds.createDimension('lat', len(latitude))
         lon          = ds.createDimension('lon', len(longitude))
 
         # create nc. variables:
@@ -253,7 +255,7 @@ for count_filename, filein in enumerate(filenames):
         # nc. variables' units
         lats.units   = 'degrees_north'
         lons.units   = 'degrees_east'
-        Height.units = 'm'     
+        Height.units = 'm'
         U.units      = 'm s**-1'
         U_SD.units   = 'm s**-1'
         V.units      = 'm s**-1'
@@ -276,17 +278,17 @@ for count_filename, filein in enumerate(filenames):
         V_SD.standard_name   = 'northward_wind_SD'
 
         # nc. saving datasets
-        lats[:]      = latitude
-        lons[:]      = longitude
-        Height[:]    = z_total_mean
-        U[:]         = u_total_mean
-        U_SD[:]      = u_total_SD
-        V[:]         = v_total_mean
-        V_SD[:]      = v_total_SD
+        lats[:]    = latitude
+        lons[:]    = longitude
+        Height[:]  = z_total_mean
+        U[:]       = u_total_mean
+        U_SD[:]    = u_total_SD
+        V[:]       = v_total_mean
+        V_SD[:]    = v_total_SD
 
         ds.close()
 
-        print("End of: " + fn)
+        print("Written: " + fn)
 
 
 # SCRIPT END
