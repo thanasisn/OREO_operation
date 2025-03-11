@@ -14,6 +14,8 @@ import sys
 import re
 from   datetime import datetime, timedelta
 from   dotmap   import DotMap
+from   domos_functions.size_to_human import size_to_human
+from   domos_functions.goodbye       import goodbye
 import yaml
 import glob
 import netCDF4  as nc
@@ -161,6 +163,17 @@ for filein in filenames:
     seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
     for season_idx, season in enumerate(seasons):
 
+        fn = cnf.ERA5.path_regrid + "/ERA5_%s_%s_%sN%sS%sW%sE.nc" % (yyyy, season, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
+    
+        # check if we already have the file
+        if os.path.isfile(fn):
+            print("Skip existing file:",
+                  os.path.basename(fn),
+                  datetime.fromtimestamp((os.path.getmtime(fn))).strftime("%F %T"),
+                  size_to_human(os.path.getsize(fn)))
+            continue
+        
+
         # initializing: u-mean,SD / v-mean,SD / w-mean,SD / z-mean for 1x1 deg2 grid resolution.
         u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
         u_total_SD   = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
@@ -232,7 +245,6 @@ for filein in filenames:
         ######################################################################
         
         # creating nc. filename and initializing:
-        fn = cnf.ERA5.path_regrid + "/ERA5_%s_%s_%sN%sS%sW%sE.nc" % (yyyy, season, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
         # fn           = output_path + '\\' + filename[0:4] + '_' + season + '.nc'
         ds           = nc.Dataset(fn, 'w', format='NETCDF4')
 
@@ -299,3 +311,6 @@ out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins"
 print('\n' + out + '\n')
 with open(cnf.LOGs.run, 'a') as runlog:
     runlog.write(out + '\n')
+    
+goodbye("test.log", tic=tic, scriptname=SCRIPT_NAME, quiet=False)
+goodbye("test.log")
