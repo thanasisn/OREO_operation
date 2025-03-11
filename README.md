@@ -1,3 +1,3 @@
 
-# OREO operational
+# OREO operation
 
