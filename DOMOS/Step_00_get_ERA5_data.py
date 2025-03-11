@@ -65,6 +65,7 @@ for yyyy in range(cnf.Range.start, cnf.Range.until + 1):
     request = {
         "product_type": ["monthly_averaged_reanalysis"],
         "variable": [
+            "geopotential",
             "u_component_of_wind",
             "v_component_of_wind"
         ],

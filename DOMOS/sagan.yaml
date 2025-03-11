@@ -10,16 +10,25 @@ LOGs:
     run:  "/home/athan/OREO/operation/LOGs/Run.log"
 
 ERA5:
+    # EPSG code
+    CRS:   4326
     ## will download here
     path_raw:    "/home/athan/DATA/ERA5_domos_raw"
     ## output of regrided
     path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
+#    ## longitude range
+#    North:  90
+#    South: -90
+#    ## latitude range
+#    West:  -180
+#    East:   180
+    ### Test domain
     ## longitude range
-    North:  90
-    South: -90
+    North:  45
+    South:  28
     ## latitude range
-    West:  -180
-    East:   180
+    West:  -80
+    East:   30
 
 ## Define domain to download and process
 Domain:

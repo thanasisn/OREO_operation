@@ -11,6 +11,7 @@ Here the script is applied for DOMOS domain.
 
 import os
 import sys
+import re
 from   datetime import datetime, timedelta
 from   dotmap   import DotMap
 import yaml
@@ -21,6 +22,9 @@ import metpy.calc
 from   metpy.units import units
 from   os          import walk
 # import math
+
+# TEST
+# os.chdir("./DOMOS")
 
 SCRIPT_NAME = __file__
 tic         = datetime.now()
@@ -48,9 +52,10 @@ mypath      = cnf.ERA5.path_raw
 output_path = cnf.ERA5.path_regrid
 
 # checking if input files exist in input dir.
-filenames = glob.glob(cnf.ERA5_input.path_raw + '/ERA5_*.nc')
+filenames = glob.glob(cnf.ERA5.path_raw + "/ERA5_*_%sN%sS%sW%sE.nc" % (cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East))
 if len(filenames) < 1 :
-    sys.exit("\nNo input file found in " + co.ERA5_input.path_raw + " !\n")
+    sys.exit("\nNo input file found in " + cnf.ERA5.path_raw + " !\n")
+
 
 # DOMOS
 # mypath      = r"D:\PC-backup\Projects\DOMOS\Datasets\2x5_deg_seasonal_mean\ERA5\ERA5_pre_processed"
@@ -64,15 +69,14 @@ if len(filenames) < 1 :
 # (II) DOMOS lat:  -65N:5:45N
 # (a wider domain is used here to account for (1) all fluxes and (2) the broader domain, and N.Atlandic Dust)
 
-sys.exit("wait")
 
 ### CLIMPACT II
-lon_array       = np.arange(-10, 45)
-lat_array       = np.arange( 30, 50)
-DOMOS_lon_array = np.arange(-10, 45, 5)
-DOMOS_lat_array = np.arange( 30, 50, 2)
+# lon_array       = np.arange(-10, 45)
+# lat_array       = np.arange( 30, 50)
+# DOMOS_lon_array = np.arange(-10, 45, 5)
+# DOMOS_lat_array = np.arange( 30, 50, 2)
 
-# ## DOMOS ####
+### DOMOS ####
 # lon_array       = np.arange(-125, 25)
 # lat_array       = np.arange( -60, 42)
 # DOMOS_lon_array = np.arange(-125, 25, 5) 
@@ -80,17 +84,22 @@ DOMOS_lat_array = np.arange( 30, 50, 2)
 
 
 
+lon_array       = np.arange(cnf.ERA5.South, cnf.ERA5.North)
+lat_array       = np.arange(cnf.ERA5.West,  cnf.ERA5.East)
+DOMOS_lon_array = np.arange(cnf.ERA5.South, cnf.ERA5.North, 5) 
+DOMOS_lat_array = np.arange(cnf.ERA5.West,  cnf.ERA5.East,  2)
 
 
 
-for count_filename, filename in enumerate(filenames):
 
-    file        = mypath + '\\' + filename
-    dataset     = nc.Dataset(file)
-    if int(filename[0:4]) < 2007:
+for count_filename, filein in enumerate(filenames):
+    yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
+    ## limit data range
+    if not cnf.Range.start <= yyyy <= cnf.Range.until:
         continue
-    print(file)
-    
+     
+    dataset = nc.Dataset(filein)
+    print("Processing: ", filein)
 
     # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
     # last visit: 03/02/2022.
@@ -111,14 +120,21 @@ for count_filename, filename in enumerate(filenames):
         if lon >= 180:
             dataset_longitude[np.where(lon == dataset_longitude)] = lon - 360
 
-    dataset_time         = dataset['time'][:]
-    dataset_level        = dataset['level'][:]
+    dataset_time         = dataset['valid_time'][:]
+    dataset_level        = dataset['pressure_level'][:]
     dataset_u            = dataset['u'][:,:,ERA5_idx_lat,ERA5_idx_lon]
     dataset_v            = dataset['v'][:,:,ERA5_idx_lat,ERA5_idx_lon]
 
+    sys.exit("wait")
+    
     # ERA convert Geopotenial to geometric height (a.m.s.l.):
     # https://unidata.github.io/MetPy/latest/api/generated/metpy.calc.geopotential_to_height.html
-    # last access: 03/02/2022. 
+    # last access: 03/02/2022.
+    level_units  = dataset['pressure_level'].units
+    level_values = dataset['pressure_level'][:]
+    level_geopot = units.Quantity(level_values, level_units)
+    metpy.calc.geopotential_to_height(level_geopot)
+    
     dataset_geo_units    = dataset['z'].units
     dataset_geopotential = dataset['z'][:,:,ERA5_idx_lat, ERA5_idx_lon]
     dataset_geopotential = units.Quantity(dataset_geopotential, dataset_geo_units)
@@ -279,5 +295,5 @@ out += os.getlogin() + "@" + os.uname()[1] + " "
 out += SCRIPT_NAME + " "
 out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins"
 print('\n' + out + '\n')
-with open(co.LOGs.run, 'a') as runlog:
+with open(cnf.LOGs.run, 'a') as runlog:
     runlog.write(out + '\n')
