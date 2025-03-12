@@ -12,62 +12,40 @@ Here the script is applied for DOMOS domain.
 import os
 import sys
 import re
-from   datetime import datetime, timedelta
-from   dotmap   import DotMap
-from   domos_functions.size_to_human import size_to_human
-from   domos_functions.goodbye       import goodbye
-import yaml
 import glob
+from   datetime import datetime
 import netCDF4  as nc
 import numpy    as np
 import metpy.calc
 from   metpy.units import units
-from   os          import walk
-# import math
 
-# TEST
+#  Load project functions
+sys.path.append("../")
+import oreo_mod.utils as Ou
+tic = datetime.now()
+
+#  TEST
 # os.chdir("./DOMOS")
 
-SCRIPT_NAME = __file__
-tic         = datetime.now()
+#  Load configuration profile by host name  ----------------------------------
+config_file = "../run_profiles/" + os.uname()[1] + '.yaml'
+cnf = Ou.get_configs(config_file)
 
-#  Load configuration by host name  --------------------------------------------
-config_file = os.uname()[1] + '.yaml'
-with open(config_file, 'r') as config_fl:
-    configs = yaml.safe_load(config_fl)
-    # Convert dictionary to use dot notation
-    cnf = DotMap(configs)
-    print("\nRead config file:", config_file, "\n")
-
-#  Check destination folder has been created  ----------------------------------
+#  Check destination folder exists  ------------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
     sys.exit("\nFolder " + cnf.ERA5.path_regrid + " don't exist!\n")
 
 
-
-
-# setting up input and output path of ERA5 files.
-# https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview
-
-# CLIMPACT
-# mypath      = cnf.ERA5.path_raw
-output_path = cnf.ERA5.path_regrid
-
-
-# checking if input files exist in input dir.
-filenames = glob.glob(cnf.ERA5.path_raw + "/ERA5_*_%sN%sS%sW%sE.nc" % (cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East))
+#  List input files exist in input dir  --------------------------------------
+filenames = glob.glob(f"{cnf.ERA5.path_raw}/ERA5_*_{cnf.ERA5.North}N{cnf.ERA5.South}S{cnf.ERA5.West}W{cnf.ERA5.East}E.nc")
 filenames.sort()
 
 if len(filenames) < 1:
     sys.exit("\nNo input file found in " + cnf.ERA5.path_raw + " !\n")
 
 
-# DOMOS
-# mypath      = r"D:\PC-backup\Projects\DOMOS\Datasets\2x5_deg_seasonal_mean\ERA5\ERA5_pre_processed"
-# output_path = r"D:\PC-backup\Projects\DOMOS\Datasets\2x5_deg_seasonal_mean\ERA5\processed"
-
-# ESA-DOMOS: "... the full coverage of the Atlantic Ocean (including dust emission sources of Africa and S. America, 
-# the broader Atlantic Ocean, Caribbean Sea and Gulf of Mexico, confined between latitudes 40°N to 60°S), and of 
+# ESA-DOMOS: "... the full coverage of the Atlantic Ocean (including dust emission sources of Africa and S. America,
+# the broader Atlantic Ocean, Caribbean Sea and Gulf of Mexico, confined between latitudes 40°N to 60°S), and of
 # temporal coverage at least between 2010 and 2020".
 # Therefore:
 # (I)  DOMOS lon: -105E:5:25E
@@ -84,19 +62,17 @@ if len(filenames) < 1:
 ### DOMOS ####
 # lon_array       = np.arange(-125, 25)
 # lat_array       = np.arange( -60, 42)
-# DOMOS_lon_array = np.arange(-125, 25, 5) 
+# DOMOS_lon_array = np.arange(-125, 25, 5)
 # DOMOS_lat_array = np.arange( -62, 42, 2)
-
-
 
 lon_array       = np.arange(cnf.ERA5.South, cnf.ERA5.North)
 lat_array       = np.arange(cnf.ERA5.West,  cnf.ERA5.East)
-DOMOS_lon_array = np.arange(cnf.ERA5.South, cnf.ERA5.North, 5) 
+DOMOS_lon_array = np.arange(cnf.ERA5.South, cnf.ERA5.North, 5)
 DOMOS_lat_array = np.arange(cnf.ERA5.West,  cnf.ERA5.East,  2)
 
 
 
-# process raw ERA5 files
+# Process raw ERA5 files  ------------------------------------------------------------
 for filein in filenames:
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
     ## limit data range
@@ -155,8 +131,8 @@ for filein in filenames:
     dataset_height_ΙΙ       = np.array(dataset_height_ΙΙ)
 
     # ERA time:
-    # units     = hours since 1900-01-01 00:00:00.0 
-    # long_name = time 
+    # units     = hours since 1900-01-01 00:00:00.0
+    # long_name = time
     # calendar  = gregorian
     # loop to produce seasonal-mean files
 
@@ -164,15 +140,17 @@ for filein in filenames:
     for season_idx, season in enumerate(seasons):
 
         fn = cnf.ERA5.path_regrid + "/ERA5_%s_%s_%sN%sS%sW%sE.nc" % (yyyy, season, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
-    
+
         # check if we already have the file
         if os.path.isfile(fn):
             print("Skip existing file:",
                   os.path.basename(fn),
                   datetime.fromtimestamp((os.path.getmtime(fn))).strftime("%F %T"),
-                  size_to_human(os.path.getsize(fn)))
+                  Ou.size_to_human(os.path.getsize(fn)))
             continue
-        
+
+        Ou.true_if_file_exist(fn)
+        sys.exit("stop")
 
         # initializing: u-mean,SD / v-mean,SD / w-mean,SD / z-mean for 1x1 deg2 grid resolution.
         u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
@@ -231,7 +209,7 @@ for filein in filenames:
                 for idx_level,lev in enumerate(dataset_level):
                     u_total_mean[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = u_total[idx_level]
                     v_total_mean[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = v_total[idx_level]
-                    z_total_mean[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = z_total[idx_level]   
+                    z_total_mean[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = z_total[idx_level]
 
                 u_total = [u[:,i,:,:].std() for i in range(u.shape[1])]
                 v_total = [v[:,i,:,:].std() for i in range(v.shape[1])]
@@ -243,9 +221,8 @@ for filein in filenames:
         ######################################################################
         #  --- Saving ERA u, v, w, height monthly mean dataset as NetCDF --- #
         ######################################################################
-        
+
         # creating nc. filename and initializing:
-        # fn           = output_path + '\\' + filename[0:4] + '_' + season + '.nc'
         ds           = nc.Dataset(fn, 'w', format='NETCDF4')
 
         # create nc. dimensions:
@@ -303,14 +280,5 @@ for filein in filenames:
         print("Written: " + fn)
 
 
-# SCRIPT END
-out  = datetime.now().strftime("%F %T") + " "
-out += os.getlogin() + "@" + os.uname()[1] + " "
-out += SCRIPT_NAME + " "
-out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins"
-print('\n' + out + '\n')
-with open(cnf.LOGs.run, 'a') as runlog:
-    runlog.write(out + '\n')
-    
-goodbye("test.log", tic=tic, scriptname=SCRIPT_NAME, quiet=False)
-goodbye("test.log")
+#  SCRIPT END  ---------------------------------------------------------------
+Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
