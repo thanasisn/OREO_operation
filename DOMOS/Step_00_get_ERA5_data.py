@@ -23,9 +23,8 @@ tic = datetime.now()
 # os.chdir("./DOMOS")
 
 #  Load configuration profile by host name  ----------------------------------
-config_file = os.uname()[1] + '.yaml'
+config_file = "../run_profiles/" + os.uname()[1] + '.yaml'
 cnf = Ou.get_configs(config_file)
-
 
 #  Check destination folder exists  ------------------------------------------
 if not os.path.isdir(cnf.ERA5.path_raw):
