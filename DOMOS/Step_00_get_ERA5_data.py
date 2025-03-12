@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""@package docstring
+"""
 Download ERA5 nc files for the current scheme.
 
 The scheme is assumed by the name of the current host.
+The downloaded files are cropped at the CDS server side.
 
 @author: thanasisn
 """
@@ -11,54 +12,43 @@ The scheme is assumed by the name of the current host.
 import os
 import sys
 from   datetime import datetime
-from   dotmap   import DotMap
-from   domos_functions.size_to_human import size_to_human
 import cdsapi
-import yaml
 
-# TEST
+#  Load project functions
+sys.path.append("../")
+import oreo_mod.utils as Ou
+tic = datetime.now()
+
+#  TEST
 # os.chdir("./DOMOS")
 
-SCRIPT_NAME = __file__
-tic         = datetime.now()
-
-#  Load configuration by host name  --------------------------------------------
+#  Load configuration profile by host name  ----------------------------------
 config_file = os.uname()[1] + '.yaml'
-with open(config_file, 'r') as config_fl:
-    configs = yaml.safe_load(config_fl)
-    # Convert dictionary to use dot notation
-    cnf = DotMap(configs)
-    print("\nRead config file:", config_file, "\n")
+cnf = Ou.get_configs(config_file)
 
-#  Check destination folder has been created  ----------------------------------
+
+#  Check destination folder exists  ------------------------------------------
 if not os.path.isdir(cnf.ERA5.path_raw):
     sys.exit("\nFolder " + cnf.ERA5.path_raw + " don't exist!\n")
 
-#  Expand domain to download  --------------------------------------------------
-print("Get domain:", 
-      "%sN %sS %sW %sE" % (cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East))
+print(f"ERA5 domain: {cnf.ERA5.North}N {cnf.ERA5.South}S {cnf.ERA5.West}W {cnf.ERA5.East}E")
 
-# start api
+#  Start cds api client
 client = cdsapi.Client(quiet=True)
 
-#  Get each year data  ---------------------------------------------------------
+#  Get each years data  ------------------------------------------------------
 for yyyy in range(cnf.Range.start, cnf.Range.until + 1):
-    # filename of file to download
+    #  Filename of the file to download
     target = os.path.join(
-        cnf.ERA5.path_raw, 
-        "ERA5_%s_%sN%sS%sW%sE.nc" % 
-        (yyyy, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
+        cnf.ERA5.path_raw,
+        f"ERA5_{yyyy}_{cnf.ERA5.North}N{cnf.ERA5.South}S{cnf.ERA5.West}W{cnf.ERA5.East}E.nc"
     )
-    
-    # check if we already have the file
-    if os.path.isfile(target):
-        print("Skip existing file:",
-              os.path.basename(target),
-              datetime.fromtimestamp((os.path.getmtime(target))).strftime("%F %T"),
-              size_to_human(os.path.getsize(target)))
+
+    #  Skip if we already have the file
+    if Ou.true_if_file_exist(target):
         continue
 
-    # get ERA5 data
+    #  Get ERA5 data
     print("Get new", os.path.basename(target))
 
     dataset = "reanalysis-era5-pressure-levels-monthly-means"
@@ -94,19 +84,13 @@ for yyyy in range(cnf.Range.start, cnf.Range.until + 1):
         "time": ["00:00"],
         "data_format":     "netcdf",
         "download_format": "unarchived",
-        "area": [cnf.ERA5.North, 
-                 cnf.ERA5.West, 
+        "area": [cnf.ERA5.North,
+                 cnf.ERA5.West,
                  cnf.ERA5.South,
                  cnf.ERA5.East]
     }
-    # call the api
+    #  Call the api to retrieve data
     client.retrieve(dataset, request, target)
 
-#  SCRIPT END  -----------------------------------------------------------------
-out  = datetime.now().strftime("%F %T") + " "
-out += os.getlogin() + "@" + os.uname()[1] + " "
-out += SCRIPT_NAME + " "
-out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins"
-print('\n' + out + '\n')
-with open(cnf.LOGs.run, 'a') as runlog:
-    runlog.write(out + '\n')
+#  SCRIPT END  ---------------------------------------------------------------
+Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
