@@ -22,25 +22,30 @@ ERA5:
 #    ## latitude range
 #    West:  -180
 #    East:   180
-    ### Test domain
+    ### Test Domain for download and regrid
     ## longitude range
-    North:  45
-    South:  28
+    North:    45
+    South:    25
+    LonStep:   5
     ## latitude range
-    West:  -80
-    East:   30
+    West:    -80
+    East:     30
+    LatStep:   2
 
-## Define domain to download and process
+
+## Define domain to regrid
 Domain:
     ## longitude range
-    North: 50
-    South: 30
+    North:   45
+    South:   25
+    LonStep:  5
     ## latitude range
-    West: -10
-    East:  45
+    West:   -80
+    East:    30
+    LatStep:  2
+
 
 ## Set the years to download
 Range:
     start: 2019
     until: 2020
-

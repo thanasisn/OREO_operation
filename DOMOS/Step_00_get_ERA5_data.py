@@ -17,6 +17,7 @@ import cdsapi
 #  Load project functions
 sys.path.append("../")
 import oreo_mod.utils as Ou
+import oreo_mod.calc  as Oc
 tic = datetime.now()
 
 #  TEST
@@ -30,7 +31,14 @@ cnf = Ou.get_configs(config_file)
 if not os.path.isdir(cnf.ERA5.path_raw):
     sys.exit("\nFolder " + cnf.ERA5.path_raw + " don't exist!\n")
 
-print(f"ERA5 domain: {cnf.ERA5.North}N {cnf.ERA5.South}S {cnf.ERA5.West}W {cnf.ERA5.East}E")
+print(f"Want ERA5 domain: {cnf.ERA5.North}N {cnf.ERA5.South}S {cnf.ERA5.West}W {cnf.ERA5.East}E")
+
+cnf.ERA5.North = Oc.border_up(  cnf.ERA5.North, cnf.ERA5.LonStep)
+cnf.ERA5.South = Oc.border_down(cnf.ERA5.South, cnf.ERA5.LonStep)
+cnf.ERA5.East  = Oc.border_up(  cnf.ERA5.East,  cnf.ERA5.LatStep)
+cnf.ERA5.West  = Oc.border_down(cnf.ERA5.West,  cnf.ERA5.LatStep)
+
+print(f"Expand domain acording to resolution: {cnf.ERA5.North}N {cnf.ERA5.South}S {cnf.ERA5.West}W {cnf.ERA5.East}E")
 
 #  Start cds api client
 client = cdsapi.Client(quiet=True)
