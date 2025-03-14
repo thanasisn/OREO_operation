@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+"""
+General functions for controlling and logging
+
+@author: thanasisn
+"""
 
 import os
 import sys
@@ -41,6 +47,41 @@ def true_if_file_exist(file, quiet=False):
                   datetime.fromtimestamp((os.path.getmtime(file))).strftime("%F %T") + ",",
                   size_to_human(os.path.getsize(file)))
         return True
+    return False
+
+
+def output_needs_update(filein, fileout, quiet=False, minsize=5):
+    """
+    Check if we have to produce a new file if the source
+    file is older or the new file is empty.
+
+    Parameters
+    ----------
+    filein : string
+        Source data file.
+
+    fileout : string
+        Target file.
+
+    Returns
+    -------
+    Boolean
+    """
+    #  can not resolve missing input file
+    if not os.path.isfile(filein):
+        sys.exit(f"Input file {filein} does not exist!")
+    #  output file is almost empty
+    if os.path.getsize(fileout) < minsize:
+        if not quiet:
+            print(f"Update: {fileout} is only {os.path.getsize(fileout)} bytes")
+        return True
+    #  input is newer
+    if os.path.getmtime(filein) > os.path.getmtime(filein):
+        if not quiet:
+            print(f"Update: {fileout} is older than {filein}")
+        return True
+    #  need to update outfile
+    print(f"Skip: {fileout}")
     return False
 
 
