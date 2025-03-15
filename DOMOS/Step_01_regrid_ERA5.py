@@ -19,13 +19,24 @@ import numpy    as np
 import metpy.calc
 from   metpy.units import units
 
+import xarray as xr
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+import xarray_regrid
+
+
 #  Load project functions
 sys.path.append("../")
 import oreo_mod.utils as Ou
+import oreo_mod.calc  as Oc
 tic = datetime.now()
 
 #  TEST
 # os.chdir("./DOMOS")
+
+#  Force the reprocess of the inputs
+FORCE = False
+FORCE = True
 
 #  Load configuration profile by host name  ----------------------------------
 config_file = "../run_profiles/" + os.uname()[1] + '.yaml'
@@ -37,7 +48,12 @@ if not os.path.isdir(cnf.ERA5.path_regrid):
 
 
 #  List input files exist in input dir  --------------------------------------
-filenames = glob.glob(f"{cnf.ERA5.path_raw}/ERA5_*_{cnf.ERA5.North}N{cnf.ERA5.South}S{cnf.ERA5.West}W{cnf.ERA5.East}E.nc")
+#  Use expanded domain to find input files
+fl_North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
+fl_South = Oc.border_down(cnf.D1.South, cnf.D1.LatStep)
+fl_East  = Oc.border_up(  cnf.D1.East,  cnf.D1.LonStep)
+fl_West  = Oc.border_down(cnf.D1.West,  cnf.D1.LonStep)
+filenames = glob.glob(f"{cnf.ERA5.path_raw}/ERA5_*_{fl_North}N{fl_South}S{fl_West}W{fl_East}E.nc")
 filenames.sort()
 
 if len(filenames) < 1:
@@ -53,23 +69,16 @@ if len(filenames) < 1:
 # (a wider domain is used here to account for (1) all fluxes and (2) the broader domain, and N.Atlandic Dust)
 
 
-### CLIMPACT II
-# lon_array       = np.arange(-10, 45)
-# lat_array       = np.arange( 30, 50)
-# DOMOS_lon_array = np.arange(-10, 45, 5)
-# DOMOS_lat_array = np.arange( 30, 50, 2)
-
 ### DOMOS ####
 # lon_array       = np.arange(-125, 25)
 # lat_array       = np.arange( -60, 42)
 # DOMOS_lon_array = np.arange(-125, 25, 5)
 # DOMOS_lat_array = np.arange( -62, 42, 2)
 
-lon_array       = np.arange(cnf.ERA5.South, cnf.ERA5.North)
-lat_array       = np.arange(cnf.ERA5.West,  cnf.ERA5.East)
-DOMOS_lon_array = np.arange(cnf.ERA5.South, cnf.ERA5.North, 5)
-DOMOS_lat_array = np.arange(cnf.ERA5.West,  cnf.ERA5.East,  2)
-
+lon_array       = np.arange(cnf.D1.South, cnf.D1.North)
+lat_array       = np.arange(cnf.D1.West,  cnf.D1.East)
+DOMOS_lon_array = np.arange(cnf.D1.South, cnf.D1.North, cnf.D1.LonStep)
+DOMOS_lat_array = np.arange(cnf.D1.West,  cnf.D1.East,  cnf.D1.LatStep)
 
 
 # Process raw ERA5 files  ------------------------------------------------------------
@@ -79,8 +88,121 @@ for filein in filenames:
     if not cnf.Range.start <= yyyy <= cnf.Range.until:
         continue
 
+    print(f"\nProcessing: {filein}")
+
+    ## load on an numpy array
     dataset = nc.Dataset(filein)
-    print("Processing: ", filein)
+
+    ## load ERA5 on a xarray
+    DT = xr.open_dataset(filein)
+
+    ## TODO find the correct multiple of boundaries to subset!
+
+    DT.longitude.values
+    DT.latitude.values
+
+    ##  Ger ERA5 spatial step
+    lat_res = (np.unique(np.diff(DT.latitude.values))[0])
+    lon_res = (np.unique(np.diff(DT.longitude.values))[0])
+
+    ## apply a domain constrains
+    ## remove the one boundary for each dimension
+    # DT = DT.sel(longitude = slice(cnf.ERA5.West,  cnf.ERA5.East ),
+    #             latitude  = slice(cnf.ERA5.North, cnf.ERA5.South))
+
+    ## original grid
+    DT.longitude.values
+    DT.latitude.values
+   
+    
+    np.arange(cnf.ERA5.North, cnf.ERA5.South, -lon_res)
+    np.arange(cnf.ERA5.West,  cnf.ERA5.East,  -lat_res)
+
+    np.arange(cnf.ERA5.North, cnf.ERA5.South, -cnf.ERA5.LonStep)
+    np.arange(cnf.ERA5.West,  cnf.ERA5.East,   cnf.ERA5.LatStep)
+
+    -cnf.ERA5.LatStep / lat_res
+
+    DT.longitude.values.min()
+    DT.longitude.values.max()
+    len(DT.longitude.values)
+    len(np.arange(cnf.ERA5.North, cnf.ERA5.South, -cnf.ERA5.LonStep))
+
+
+    DT.latitude.values.min()
+    DT.latitude.values.max()
+    len(DT.latitude.values)
+
+
+    sys.exit("stop")
+    
+    DT.dims
+    DT.info
+    DT.data_vars
+    DT.coords
+    DT.u
+    DT.z.units
+
+
+    ## test plot
+    DT.u.isel(pressure_level = 0, valid_time = 0).plot()
+    DT.v.isel(pressure_level = 0, valid_time = 0).plot()
+
+    ## create height variable
+    DT = DT.assign(height = metpy.calc.geopotential_to_height(DT.z))
+    DT['height'].attrs = {
+        'long_name':     'Height',
+        'units':         'm',
+        'standard_name': 'height'
+    }
+
+    # np.array(geopot)
+    # geopot.meters
+    # units.Quantity(geopot)
+    # DT['heigth'] = geopot
+
+    DT.height.values
+    DT.height.attrs
+    DT.u.values
+    DT.u.attrs
+    DT.dims
+    DT.data_vars
+
+    # ## test write to nc
+    # comp = dict(zlib=True, complevel=5)
+    # encoding = {var: comp for var in DT.data_vars}
+    # DT.to_netcdf("test.nc", mode = 'w', engine = "netcdf4", encoding = encoding)
+
+
+    ## grid data
+
+    dd.dims
+    dd.data_vars
+    dd.coords
+    dd.info
+
+
+
+    dd = DT.coarsen(latitude  = int(-cnf.ERA5.LatStep / lat_res), 
+                    longitude = int( cnf.ERA5.LonStep / lon_res),
+                    boundary = "trim").mean()
+    
+    dd.longitude.values    
+    np.diff(dd.longitude.values)
+    
+    dd.latitude.values
+    np.diff(dd.latitude.values)
+    
+
+    # ## with pad may get under representation of values due to unequal bins
+    # bb = DT.coarsen(latitude  = int(-cnf.ERA5.LatStep / lat_res),
+    #                 longitude = int( cnf.ERA5.LonStep / lon_res),
+    #                 boundary  ='pad').mean()
+    # bb.longitude.values    
+    # np.diff(bb.longitude.values)
+
+
+    sys.exit("stop")
 
     # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
     # ERA longitude from 0->360 deg to -180->180 deg.
@@ -90,20 +212,25 @@ for filein in filenames:
     dataset_latitude     = dataset['latitude'][ERA5_idx_lat]
 
     dataset_longitude    = dataset['longitude'][:]
+
     for lon in dataset_longitude:
         if lon >= 180:
             dataset_longitude[np.where(lon == dataset_longitude)] = lon - 360
+            print("lon >= 180")
+
     ERA5_idx_lon         = np.where((dataset_longitude >= lon_array[0]) & (dataset_longitude <= lon_array[-1]+1))
     ERA5_idx_lon         = np.ravel(ERA5_idx_lon)
     dataset_longitude    = dataset['longitude'][ERA5_idx_lon]
+
     for lon in dataset_longitude:
         if lon >= 180:
             dataset_longitude[np.where(lon == dataset_longitude)] = lon - 360
+            print("lon >= 180")
 
     dataset_time         = dataset['valid_time'][:]
     dataset_level        = dataset['pressure_level'][:]
-    dataset_u            = dataset['u'][:,:,ERA5_idx_lat,ERA5_idx_lon]
-    dataset_v            = dataset['v'][:,:,ERA5_idx_lat,ERA5_idx_lon]
+    dataset_u            = dataset['u'][:,:,ERA5_idx_lat, ERA5_idx_lon]
+    dataset_v            = dataset['v'][:,:,ERA5_idx_lat, ERA5_idx_lon]
 
 
     # ERA convert Geopotenial to geometric height (a.m.s.l.):
@@ -118,7 +245,7 @@ for filein in filenames:
     # File of previous year - to read December for DJF season
     previous_file = list(filter(lambda x:'ERA5_'+str(yyyy-1) in x, filenames))
     if (len(previous_file)!=1):
-        print("SKIP! No previous year file exist\n")
+        print("SKIP! No file for previous year exists\n")
         continue
 
     # Year_of_Interest_previous = mypath + '\\' + str(int(filename[0:4])-1)+'.nc'
@@ -135,22 +262,18 @@ for filein in filenames:
     # long_name = time
     # calendar  = gregorian
     # loop to produce seasonal-mean files
+    # sys.exit("stop")
 
     seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
     for season_idx, season in enumerate(seasons):
 
-        fn = cnf.ERA5.path_regrid + "/ERA5_%s_%s_%sN%sS%sW%sE.nc" % (yyyy, season, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
+        fileout = cnf.ERA5.path_regrid + "/ERA5_%s_%s_%sN%sS%sW%sE.nc" % (yyyy, season, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
 
-        # check if we already have the file
-        if os.path.isfile(fn):
-            print("Skip existing file:",
-                  os.path.basename(fn),
-                  datetime.fromtimestamp((os.path.getmtime(fn))).strftime("%F %T"),
-                  Ou.size_to_human(os.path.getsize(fn)))
+        if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
             continue
 
-        Ou.true_if_file_exist(fn)
-        sys.exit("stop")
+
+        # sys.exit("stop")
 
         # initializing: u-mean,SD / v-mean,SD / w-mean,SD / z-mean for 1x1 deg2 grid resolution.
         u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
@@ -162,7 +285,7 @@ for filein in filenames:
         # computing and saving: u-mean,SD / v-mean,SD / z-mean for 2x5 deg2 grid resolution.
         for lon in DOMOS_lon_array:
 
-            idx_lon        = np.where((dataset_longitude >= lon) & (dataset_longitude <= lon + 5))
+            idx_lon        = np.where((dataset_longitude >= lon) & (dataset_longitude <= lon + cnf.ERA5.LonStep))
             idx_lon        = np.ravel(idx_lon)
             temp_u         = dataset_u[:,:,:,idx_lon]
             temp_v         = dataset_v[:,:,:,idx_lon]
@@ -173,7 +296,7 @@ for filein in filenames:
 
             for lat in DOMOS_lat_array:
 
-                idx_lat = np.where((dataset_latitude >= lat) & (dataset_latitude <= lat + 2))
+                idx_lat = np.where((dataset_latitude >= lat) & (dataset_latitude <= lat + cnf.ERA5.LatStep))
                 idx_lat = np.ravel(idx_lat)
 
                 if season == 'Q1_DJF':
@@ -223,11 +346,11 @@ for filein in filenames:
         ######################################################################
 
         # creating nc. filename and initializing:
-        ds           = nc.Dataset(fn, 'w', format='NETCDF4')
+        ds           = nc.Dataset(fileout, 'w', format='NETCDF4')
 
         # create nc. dimensions:
-        longitude    = DOMOS_lon_array + 2.5
-        latitude     = DOMOS_lat_array + 1
+        longitude    = DOMOS_lon_array + cnf.ERA5.LonStep / 2
+        latitude     = DOMOS_lat_array + cnf.ERA5.LatStep / 2
         lev          = ds.createDimension('lev', len(dataset_level))
         lat          = ds.createDimension('lat', len(latitude))
         lon          = ds.createDimension('lon', len(longitude))
@@ -277,7 +400,7 @@ for filein in filenames:
 
         ds.close()
 
-        print("Written: " + fn)
+        print(f"\nWritten: {fileout}")
 
 
 #  SCRIPT END  ---------------------------------------------------------------
