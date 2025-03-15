@@ -1,14 +1,15 @@
 #
-#  Options for "tyler" host
+#  Profile options for "tyler" host
 #
 #  We assume each host use a different profile for development, production etc
 #
 
-## some logging paths
+##  Set logging paths  ----------------------------------------------
 LOGs:
     path: "/home/athan/OREO/operation/LOGs"
     run:  "/home/athan/OREO/operation/LOGs/Run.log"
 
+##  ERA5 data  ------------------------------------------------------
 ERA5:
     ## EPSG code
     CRS:         4326
@@ -17,11 +18,12 @@ ERA5:
     ## output of regrided
     path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
 
-##  Define domains
+##  Define domains  -------------------------------------------------
 
+##  Not used
 D0: "global"
 
-##  Download ERA5 and regrid
+##  Used to download ERA5 and regrid
 D1:
     name: "Initial inputs"
     ## Latitude range
@@ -34,7 +36,8 @@ D1:
     LonStep:   5
 
 
-## Set the years to download
+##  Set the years to download  --------------------------------------
 Range:
     start: 2019
     until: 2020
+
