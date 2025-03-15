@@ -31,7 +31,7 @@ cnf = Ou.get_configs(config_file)
 if not os.path.isdir(cnf.ERA5.path_raw):
     sys.exit(f"\nFolder {cnf.ERA5.path_raw} don't exist!\n")
 
-print(f"Want ERA5 domain: {cnf.ERA5.North}N {cnf.ERA5.South}S {cnf.ERA5.West}W {cnf.ERA5.East}E")
+print(f"Want ERA5 domain:                     {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
 
 ##  Override random domain with target resolution boundaries  ----------------
 cnf.D1.North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
