@@ -14,41 +14,42 @@ import sys
 from   datetime import datetime
 import cdsapi
 
-#  Load project functions
+##  Load project functions
 sys.path.append("../")
 import oreo_mod.utils as Ou
 import oreo_mod.calc  as Oc
 tic = datetime.now()
 
-#  TEST
+##  TEST
 # os.chdir("./DOMOS")
 
-#  Load configuration profile by host name  ----------------------------------
-config_file = "../run_profiles/" + os.uname()[1] + '.yaml'
+##  Load configuration profile by host name  ---------------------------------
+config_file = f"../run_profiles/{os.uname()[1]}.yaml"
 cnf = Ou.get_configs(config_file)
 
-#  Check destination folder exists  ------------------------------------------
+##  Check destination folder exists  -----------------------------------------
 if not os.path.isdir(cnf.ERA5.path_raw):
-    sys.exit("\nFolder " + cnf.ERA5.path_raw + " don't exist!\n")
+    sys.exit(f"\nFolder {cnf.ERA5.path_raw} don't exist!\n")
 
 print(f"Want ERA5 domain: {cnf.ERA5.North}N {cnf.ERA5.South}S {cnf.ERA5.West}W {cnf.ERA5.East}E")
 
-cnf.ERA5.North = Oc.border_up(  cnf.ERA5.North, cnf.ERA5.LonStep)
-cnf.ERA5.South = Oc.border_down(cnf.ERA5.South, cnf.ERA5.LonStep)
-cnf.ERA5.East  = Oc.border_up(  cnf.ERA5.East,  cnf.ERA5.LatStep)
-cnf.ERA5.West  = Oc.border_down(cnf.ERA5.West,  cnf.ERA5.LatStep)
+##  Override random domain with target resolution boundaries  ----------------
+cnf.D1.North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
+cnf.D1.South = Oc.border_down(cnf.D1.South, cnf.D1.LatStep)
+cnf.D1.East  = Oc.border_up(  cnf.D1.East,  cnf.D1.LonStep)
+cnf.D1.West  = Oc.border_down(cnf.D1.West,  cnf.D1.LonStep)
 
-print(f"Expand domain acording to resolution: {cnf.ERA5.North}N {cnf.ERA5.South}S {cnf.ERA5.West}W {cnf.ERA5.East}E")
+print(f"Expand domain acording to resolution: {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
 
-#  Start cds api client
-client = cdsapi.Client(quiet=True)
+##  Start cds api client
+client = cdsapi.Client(quiet = True)
 
 #  Get each years data  ------------------------------------------------------
 for yyyy in range(cnf.Range.start, cnf.Range.until + 1):
     #  Filename of the file to download
     target = os.path.join(
         cnf.ERA5.path_raw,
-        f"ERA5_{yyyy}_{cnf.ERA5.North}N{cnf.ERA5.South}S{cnf.ERA5.West}W{cnf.ERA5.East}E.nc"
+        f"ERA5_{yyyy}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
     )
 
     #  Skip if we already have the file
@@ -91,10 +92,10 @@ for yyyy in range(cnf.Range.start, cnf.Range.until + 1):
         "time": ["00:00"],
         "data_format":     "netcdf",
         "download_format": "unarchived",
-        "area": [cnf.ERA5.North,
-                 cnf.ERA5.West,
-                 cnf.ERA5.South,
-                 cnf.ERA5.East]
+        "area": [cnf.D1.North,
+                 cnf.D1.West,
+                 cnf.D1.South,
+                 cnf.D1.East]
     }
     #  Call the api to retrieve data
     client.retrieve(dataset, request, target)
