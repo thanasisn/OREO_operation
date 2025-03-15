@@ -115,18 +115,18 @@ for filein in filenames:
     DT.latitude.values
    
     
-    np.arange(cnf.ERA5.North, cnf.ERA5.South, -lon_res)
-    np.arange(cnf.ERA5.West,  cnf.ERA5.East,  -lat_res)
+    np.arange(cnf.D1.North, cnf.D1.South, -lon_res)
+    np.arange(cnf.D1.West,  cnf.D1.East,  -lat_res)
 
-    np.arange(cnf.ERA5.North, cnf.ERA5.South, -cnf.ERA5.LonStep)
-    np.arange(cnf.ERA5.West,  cnf.ERA5.East,   cnf.ERA5.LatStep)
+    np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LonStep)
+    np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LatStep)
 
     -cnf.ERA5.LatStep / lat_res
 
     DT.longitude.values.min()
     DT.longitude.values.max()
     len(DT.longitude.values)
-    len(np.arange(cnf.ERA5.North, cnf.ERA5.South, -cnf.ERA5.LonStep))
+    len(np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LonStep))
 
 
     DT.latitude.values.min()
@@ -183,8 +183,8 @@ for filein in filenames:
 
 
 
-    dd = DT.coarsen(latitude  = int(-cnf.ERA5.LatStep / lat_res), 
-                    longitude = int( cnf.ERA5.LonStep / lon_res),
+    dd = DT.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res), 
+                    longitude = int( cnf.D1.LonStep / lon_res),
                     boundary = "trim").mean()
     
     dd.longitude.values    
