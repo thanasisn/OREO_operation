@@ -24,6 +24,8 @@ import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import xarray_regrid
 
+import matplotlib.backends.backend_pdf
+pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
 
 #  Load project functions
 sys.path.append("../")
@@ -101,7 +103,7 @@ for filein in filenames:
     DT.longitude.values
     DT.latitude.values
 
-    ##  Ger ERA5 spatial step
+    ##  Get ERA5 spatial step
     lat_res = (np.unique(np.diff(DT.latitude.values))[0])
     lon_res = (np.unique(np.diff(DT.longitude.values))[0])
 
@@ -113,29 +115,23 @@ for filein in filenames:
     ## original grid
     DT.longitude.values
     DT.latitude.values
-   
-    
+
     np.arange(cnf.D1.North, cnf.D1.South, -lon_res)
     np.arange(cnf.D1.West,  cnf.D1.East,  -lat_res)
 
     np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LonStep)
     np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LatStep)
 
-    -cnf.ERA5.LatStep / lat_res
-
     DT.longitude.values.min()
     DT.longitude.values.max()
     len(DT.longitude.values)
     len(np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LonStep))
 
-
     DT.latitude.values.min()
     DT.latitude.values.max()
     len(DT.latitude.values)
+    len(np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LatStep))
 
-
-    sys.exit("stop")
-    
     DT.dims
     DT.info
     DT.data_vars
@@ -147,6 +143,11 @@ for filein in filenames:
     ## test plot
     DT.u.isel(pressure_level = 0, valid_time = 0).plot()
     DT.v.isel(pressure_level = 0, valid_time = 0).plot()
+
+    # pdf.savefig( f1 )
+    # pdf.savefig( f2 )
+    # pdf.close()
+
 
     ## create height variable
     DT = DT.assign(height = metpy.calc.geopotential_to_height(DT.z))
@@ -168,38 +169,45 @@ for filein in filenames:
     DT.dims
     DT.data_vars
 
-    # ## test write to nc
-    # comp = dict(zlib=True, complevel=5)
-    # encoding = {var: comp for var in DT.data_vars}
-    # DT.to_netcdf("test.nc", mode = 'w', engine = "netcdf4", encoding = encoding)
 
 
     ## grid data
+
+    dd = DT.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
+                    longitude = int( cnf.D1.LonStep / lon_res),
+                    boundary = "trim").mean(skipna=True)
+
+    dd.longitude.values
+    np.diff(dd.longitude.values)
+
+    dd.latitude.values
+    np.diff(dd.latitude.values)
 
     dd.dims
     dd.data_vars
     dd.coords
     dd.info
 
+    dd.u.isel(pressure_level = 0, valid_time = 0).plot()
+    dd.v.isel(pressure_level = 0, valid_time = 0).plot()
 
+    ## test write to nc
+    comp = dict(zlib=True, complevel=5)
+    encoding = {var: comp for var in DT.data_vars}
+    dd.to_netcdf("test.nc", mode = 'w', engine = "netcdf4", encoding = encoding)
 
-    dd = DT.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res), 
-                    longitude = int( cnf.D1.LonStep / lon_res),
-                    boundary = "trim").mean()
-    
-    dd.longitude.values    
-    np.diff(dd.longitude.values)
-    
-    dd.latitude.values
-    np.diff(dd.latitude.values)
-    
 
     # ## with pad may get under representation of values due to unequal bins
     # bb = DT.coarsen(latitude  = int(-cnf.ERA5.LatStep / lat_res),
     #                 longitude = int( cnf.ERA5.LonStep / lon_res),
     #                 boundary  ='pad').mean()
-    # bb.longitude.values    
+    # bb.longitude.values
     # np.diff(bb.longitude.values)
+
+
+
+
+
 
 
     sys.exit("stop")
