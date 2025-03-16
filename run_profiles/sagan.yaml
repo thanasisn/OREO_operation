@@ -17,6 +17,8 @@ ERA5:
     path_raw:    "/home/athan/DATA/ERA5_domos_raw"
     ## output of regrided
     path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
+    ## method used to aggregate data
+    method:      "mean"
 
 ##  Define domains  -------------------------------------------------
 
