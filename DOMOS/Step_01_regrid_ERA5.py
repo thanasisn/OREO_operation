@@ -77,10 +77,10 @@ if len(filenames) < 1:
 # DOMOS_lon_array = np.arange(-125, 25, 5)
 # DOMOS_lat_array = np.arange( -62, 42, 2)
 
-lon_array       = np.arange(cnf.D1.South, cnf.D1.North)
-lat_array       = np.arange(cnf.D1.West,  cnf.D1.East)
-DOMOS_lon_array = np.arange(cnf.D1.South, cnf.D1.North, cnf.D1.LonStep)
-DOMOS_lat_array = np.arange(cnf.D1.West,  cnf.D1.East,  cnf.D1.LatStep)
+lat_array       = np.arange(cnf.D1.South, cnf.D1.North)
+lon_array       = np.arange(cnf.D1.West,  cnf.D1.East)
+DOMOS_lat_array = np.arange(cnf.D1.South, cnf.D1.North, cnf.D1.LonStep)
+DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,  cnf.D1.LatStep)
 
 
 # Process raw ERA5 files  ------------------------------------------------------------
@@ -207,6 +207,12 @@ for filein in filenames:
             cnf.ERA5.path_regrid,
             f"ERA5_{yyyy}_{season}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
         )
+        fileout_test = os.path.join(
+            cnf.ERA5.path_regrid,
+            f"ERA5_{yyyy}_{season}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E_test.nc"
+        )
+
+
 
         ## skip existing files
         if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
@@ -235,7 +241,7 @@ for filein in filenames:
 
         elif season == 'Q2_MAM':
             ## select main data explicitly
-            DTses = DT.sel(valid_time=[f"{yyyy}-03-01", f"{yyyy}-03-01", f"{yyyy}-05-01"])
+            DTses = DT.sel(valid_time = slice(f"{yyyy}-03-01", f"{yyyy}-05-01"))
             ## create a data stamp
             sesdate = datetime(yyyy, 3, 15)
 
@@ -274,9 +280,56 @@ for filein in filenames:
             ## mean of all months
             res = dd.mean(dim = ["valid_time"])
 
-            DTses
 
-            sys.exit("DDD")
+            # DTses = DTses.assign(valid_time = DTses.valid_time.dt.month)
+            #
+            # ## this should work
+            # DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
+            #               longitude = int( cnf.D1.LonStep / lon_res),
+            #               valid_time = 3,
+            #               boundary  = "trim").mean(skipna=True)
+
+            ##  Manual calculation  ---------------
+
+            ## init target arrays
+            u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            u_total_SD   = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            u_total_N    = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+
+            v_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            v_total_SD   = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            v_total_N    = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+
+            z_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            height_mean  = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+
+            ## compute in each cell
+            for ilon, lon in enumerate(DOMOS_lon_array):
+                for jlat, lat in enumerate(DOMOS_lat_array):
+                    for klev, lev in enumerate(DTses.pressure_level):
+
+                        ## FIXME this includes each of the limits value two times !!!
+                        cell = DTses.where(
+                            (DTses.longitude >= lon) &
+                            (DTses.longitude <= lon + cnf.D1.LonStep) &
+                            (DTses.latitude  >= lat) &
+                            (DTses.latitude  <= lat + cnf.D1.LatStep) &
+                            (DTses.pressure_level == lev),
+                            drop =True)
+
+                        ## cell statsistics
+                        u_total_mean[ilon, jlat, klev] = np.mean(                   cell.u.values)
+                        u_total_SD  [ilon, jlat, klev] = np.std(                    cell.u.values)
+                        u_total_N   [ilon, jlat, klev] = np.count_nonzero(~np.isnan(cell.u.values))
+
+                        v_total_mean[ilon, jlat, klev] = np.mean(                   cell.v.values)
+                        v_total_SD  [ilon, jlat, klev] = np.std(                    cell.v.values)
+                        v_total_N   [ilon, jlat, klev] = np.count_nonzero(~np.isnan(cell.v.values))
+
+                        z_total_mean[ilon, jlat, klev] = np.mean(                   cell.z.values)
+                        height_mean [ilon, jlat, klev] = np.mean(                   cell.height.values)
+
+
             del dd
         elif cnf.ERA5.method == "median":
             ## re grid data by median of the grid
@@ -298,8 +351,62 @@ for filein in filenames:
         res.to_netcdf(fileout, mode = 'w', engine = "netcdf4", encoding = encoding)
         print(f"\nWritten: {fileout}")
 
+        ## test export
+        # creating nc. filename and initializing:
+        ds           = nc.Dataset(fileout_test, 'w', format='NETCDF4')
 
+        # create nc. dimensions:
+        longitude    = DOMOS_lon_array + cnf.D1.LonStep / 2
+        latitude     = DOMOS_lat_array + cnf.D1.LatStep / 2
+        lev          = ds.createDimension('lev', len(DTses.pressure_level))
+        lat          = ds.createDimension('lat', len(latitude))
+        lon          = ds.createDimension('lon', len(longitude))
 
+        # create nc. variables:
+        lats         = ds.createVariable('Latitude', 'f4',   ('lat',),             zlib=True)
+        lons         = ds.createVariable('Longitude','f4',   ('lon',),             zlib=True)
+        Height       = ds.createVariable('Height',   'f4',   ('lon','lat','lev',), zlib=True)
+        U            = ds.createVariable('U',    np.float64, ('lon','lat','lev',), zlib=True)
+        U_SD         = ds.createVariable('U_SD', np.float64, ('lon','lat','lev',), zlib=True)
+        V            = ds.createVariable('V',    np.float64, ('lon','lat','lev',), zlib=True)
+        V_SD         = ds.createVariable('V_SD', np.float64, ('lon','lat','lev',), zlib=True)
+
+        # nc. variables' units
+        lats.units   = 'degrees_north'
+        lons.units   = 'degrees_east'
+        Height.units = 'm'
+        U.units      = 'm s**-1'
+        U_SD.units   = 'm s**-1'
+        V.units      = 'm s**-1'
+        V_SD.units   = 'm s**-1'
+
+        # nc. variables' "long names":
+        lats.long_name   = 'Latitude'
+        lons.long_name   = 'Longitude'
+        Height.long_name = 'Height'
+        U.long_name      = 'U component of wind'
+        U_SD.long_name   = 'U component of wind SD'
+        V.long_name      = 'V component of wind'
+        V_SD.long_name   = 'V component of wind SD'
+
+        # nc. variables' "standard names":
+        Height.standard_name = 'height'
+        U.standard_name      = 'eastward_wind'
+        U_SD.standard_name   = 'eastward_wind_SD'
+        V.standard_name      = 'northward_wind'
+        V_SD.standard_name   = 'northward_wind_SD'
+
+        # nc. saving datasets
+        lats[:]    = latitude
+        lons[:]    = longitude
+        Height[:]  = z_total_mean
+        U[:]       = u_total_mean
+        U_SD[:]    = u_total_SD
+        V[:]       = v_total_mean
+        V_SD[:]    = v_total_SD
+
+        ds.close()
+        print(f"\nWritten: {fileout_test}")
 
 
 
@@ -422,6 +529,7 @@ for filein in filenames:
     #             u_total = [u[:,i,:,:].std() for i in range(u.shape[1])]
     #             v_total = [v[:,i,:,:].std() for i in range(v.shape[1])]
     #             z_total = [z[:,i,:,:].std() for i in range(z.shape[1])]
+
     #             for idx_level,lev in enumerate(dataset_level):
     #                 u_total_SD[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = u_total[idx_level]
     #                 v_total_SD[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = v_total[idx_level]
