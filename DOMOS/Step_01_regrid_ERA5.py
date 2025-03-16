@@ -17,11 +17,11 @@ from   datetime import datetime
 import netCDF4  as nc
 import numpy    as np
 import metpy.calc
-from   metpy.units import units
-
 import xarray as xr
-import cartopy.crs as ccrs
-import matplotlib.pyplot as plt
+
+# from   metpy.units import units
+# import cartopy.crs as ccrs
+# import matplotlib.pyplot as plt
 # import xarray_regrid
 
 import matplotlib.backends.backend_pdf
@@ -41,12 +41,12 @@ FORCE = False
 FORCE = True
 
 #  Load configuration profile by host name  ----------------------------------
-config_file = "../run_profiles/" + os.uname()[1] + '.yaml'
+config_file = f"../run_profiles/{os.uname()[1]}.yaml"
 cnf = Ou.get_configs(config_file)
 
 #  Check destination folder exists  ------------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
-    sys.exit("\nFolder " + cnf.ERA5.path_regrid + " don't exist!\n")
+    sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
 
 
 #  List input files exist in input dir  --------------------------------------
@@ -59,7 +59,7 @@ filenames = glob.glob(f"{cnf.ERA5.path_raw}/ERA5_*_{fl_North}N{fl_South}S{fl_Wes
 filenames.sort()
 
 if len(filenames) < 1:
-    sys.exit("\nNo input file found in " + cnf.ERA5.path_raw + " !\n")
+    sys.exit(f"\nNo input file found in {cnf.ERA5.path_raw} !!\n")
 
 
 # ESA-DOMOS: "... the full coverage of the Atlantic Ocean (including dust emission sources of Africa and S. America,
@@ -235,48 +235,48 @@ for filein in filenames:
 
         elif season == 'Q2_MAM':
             ## select main data explicitly
-            DTcur = DT.sel(valid_time=[f"{yyyy}-03-01", f"{yyyy}-03-01", f"{yyyy}-05-01"])
+            DTses = DT.sel(valid_time=[f"{yyyy}-03-01", f"{yyyy}-03-01", f"{yyyy}-05-01"])
             ## create a data stamp
             sesdate = datetime(yyyy, 3, 15)
-            del DTpre
-            del DTcur
 
         elif season == 'Q3_JJA':
             ## select main data explicitly
-            DTcur = DT.sel(valid_time=[f"{yyyy}-06-01", f"{yyyy}-07-01", f"{yyyy}-08-01"])
+            DTses = DT.sel(valid_time=[f"{yyyy}-06-01", f"{yyyy}-07-01", f"{yyyy}-08-01"])
             ## create a data stamp
             sesdate = datetime(yyyy, 7, 15)
-            del DTpre
-            del DTcur
 
         elif season == 'Q4_SON':
             ## select main data explicitly
-            DTcur = DT.sel(valid_time=[f"{yyyy}-09-01", f"{yyyy}-10-01", f"{yyyy}-11-01"])
+            DTses = DT.sel(valid_time=[f"{yyyy}-09-01", f"{yyyy}-10-01", f"{yyyy}-11-01"])
             ## create a data stamp
             sesdate = datetime(yyyy, 10, 15)
-            del DTpre
-            del DTcur
+
         else:
             continue
-
 
 
         ## add geometric height
         DTses = DTses.assign(height = metpy.calc.geopotential_to_height(DTses.z))
         DTses['height'].attrs = {
-            'long_name':     'Height',
+            'long_name':     'Geometric height',
             'units':         'm',
             'standard_name': 'height'
         }
 
         ## Choose aggregation method to apply
         if cnf.ERA5.method == "mean":
+            ## TODO make it one step to compute SD
+
             ## re grid data by mean of the grid
             dd = DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
                                longitude = int( cnf.D1.LonStep / lon_res),
                                boundary  = "trim").mean(skipna=True)
             ## mean of all months
             res = dd.mean(dim = ["valid_time"])
+
+            DTses
+
+            sys.exit("DDD")
             del dd
         elif cnf.ERA5.method == "median":
             ## re grid data by median of the grid
@@ -482,7 +482,6 @@ for filein in filenames:
     #     V_SD[:]    = v_total_SD
 
     #     ds.close()
-
 
 
 #  SCRIPT END  ---------------------------------------------------------------
