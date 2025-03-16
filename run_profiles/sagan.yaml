@@ -29,12 +29,12 @@ D0: "global"
 D1:
     name: "Initial inputs"
     ## Latitude range
-    North:    45
+    North:    42
     South:    25
     LatStep:   2
     ## Longitude range
     West:    -80
-    East:     30
+    East:     25
     LonStep:   5
 
 
