@@ -79,8 +79,8 @@ if len(filenames) < 1:
 
 lat_array       = np.arange(cnf.D1.South, cnf.D1.North)
 lon_array       = np.arange(cnf.D1.West,  cnf.D1.East)
-DOMOS_lat_array = np.arange(cnf.D1.South, cnf.D1.North, cnf.D1.LonStep)
-DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,  cnf.D1.LatStep)
+DOMOS_lat_array = np.arange(cnf.D1.South, cnf.D1.North, cnf.D1.LatStep)
+DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,  cnf.D1.LonStep)
 
 
 # Process raw ERA5 files  ------------------------------------------------------------
@@ -202,6 +202,7 @@ for filein in filenames:
     ## for now we keep original approach
     seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
     for season_idx, season in enumerate(seasons):
+        print(f"{yyyy} {season}")
 
         fileout = os.path.join(
             cnf.ERA5.path_regrid,
@@ -212,8 +213,6 @@ for filein in filenames:
             f"ERA5_{yyyy}_{season}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E_test.nc"
         )
 
-
-
         ## skip existing files
         if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
             continue
@@ -223,7 +222,7 @@ for filein in filenames:
             # File of previous year - to read December for DJF season
             previous_file = list(filter(lambda x:'ERA5_' + str(yyyy - 1) in x, filenames))
             if (len(previous_file)!=1):
-                print("SKIP! No file for previous year exists\n")
+                print("SKIP season! No file for the previous year found\n")
                 continue # seasons iteration
 
             ## load ERA5 main file on a xarray
@@ -247,13 +246,13 @@ for filein in filenames:
 
         elif season == 'Q3_JJA':
             ## select main data explicitly
-            DTses = DT.sel(valid_time=[f"{yyyy}-06-01", f"{yyyy}-07-01", f"{yyyy}-08-01"])
+            DTses = DT.sel(valid_time = slice(f"{yyyy}-06-01", f"{yyyy}-08-01"))
             ## create a data stamp
             sesdate = datetime(yyyy, 7, 15)
 
         elif season == 'Q4_SON':
             ## select main data explicitly
-            DTses = DT.sel(valid_time=[f"{yyyy}-09-01", f"{yyyy}-10-01", f"{yyyy}-11-01"])
+            DTses = DT.sel(valid_time = slice(f"{yyyy}-09-01", f"{yyyy}-11-01"))
             ## create a data stamp
             sesdate = datetime(yyyy, 10, 15)
 
@@ -271,16 +270,18 @@ for filein in filenames:
 
         ## Choose aggregation method to apply
         if cnf.ERA5.method == "mean":
-            ## TODO make it one step to compute SD
+
+            ##  Calculations with xarray  -------------------------------------
 
             ## re grid data by mean of the grid
             dd = DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
                                longitude = int( cnf.D1.LonStep / lon_res),
-                               boundary  = "trim").mean(skipna=True)
+                               boundary  = "trim").mean(skipna = True)
             ## mean of all months
             res = dd.mean(dim = ["valid_time"])
 
 
+            ## TODO make it one step to compute SD
             # DTses = DTses.assign(valid_time = DTses.valid_time.dt.month)
             #
             # ## this should work
@@ -289,7 +290,7 @@ for filein in filenames:
             #               valid_time = 3,
             #               boundary  = "trim").mean(skipna=True)
 
-            ##  Manual calculation  ---------------
+            ##  Manual calculation  -------------------------------------------
 
             ## init target arrays
             u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
@@ -317,31 +318,29 @@ for filein in filenames:
                             (DTses.pressure_level == lev),
                             drop =True)
 
-                        ## cell statsistics
-                        u_total_mean[ilon, jlat, klev] = np.mean(                   cell.u.values)
-                        u_total_SD  [ilon, jlat, klev] = np.std(                    cell.u.values)
-                        u_total_N   [ilon, jlat, klev] = np.count_nonzero(~np.isnan(cell.u.values))
+                        ## cell statistics invert index order for nc
+                        u_total_mean[klev, jlat, ilon] = np.mean(                   cell.u.values)
+                        u_total_SD  [klev, jlat, ilon] = np.std(                    cell.u.values)
+                        u_total_N   [klev, jlat, ilon] = np.count_nonzero(~np.isnan(cell.u.values))
 
-                        v_total_mean[ilon, jlat, klev] = np.mean(                   cell.v.values)
-                        v_total_SD  [ilon, jlat, klev] = np.std(                    cell.v.values)
-                        v_total_N   [ilon, jlat, klev] = np.count_nonzero(~np.isnan(cell.v.values))
+                        v_total_mean[klev, jlat, ilon] = np.mean(                   cell.v.values)
+                        v_total_SD  [klev, jlat, ilon] = np.std(                    cell.v.values)
+                        v_total_N   [klev, jlat, ilon] = np.count_nonzero(~np.isnan(cell.v.values))
 
-                        z_total_mean[ilon, jlat, klev] = np.mean(                   cell.z.values)
-                        height_mean [ilon, jlat, klev] = np.mean(                   cell.height.values)
-
+                        z_total_mean[klev, jlat, ilon] = np.mean(                   cell.z.values)
+                        height_mean [klev, jlat, ilon] = np.mean(                   cell.height.values)
 
             del dd
         elif cnf.ERA5.method == "median":
             ## re grid data by median of the grid
             dd = DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
                                longitude = int( cnf.D1.LonStep / lon_res),
-                               boundary  = "trim").median(skipna=True)
+                               boundary  = "trim").median(skipna = True)
             ## median of all moths
             res = dd.median(dim = ["valid_time"])
             del dd
         else:
             sys.exit(f"\nUnknown method: {cnf.ERA5.method} !!\n")
-
 
         ## add time stamp to the dataset
         res = res.expand_dims(time = [sesdate])
@@ -349,7 +348,7 @@ for filein in filenames:
         comp = dict(zlib=True, complevel=5)
         encoding = {var: comp for var in res.data_vars}
         res.to_netcdf(fileout, mode = 'w', engine = "netcdf4", encoding = encoding)
-        print(f"\nWritten: {fileout}")
+        print(f"Written: {fileout}")
 
         ## test export
         # creating nc. filename and initializing:
@@ -363,13 +362,13 @@ for filein in filenames:
         lon          = ds.createDimension('lon', len(longitude))
 
         # create nc. variables:
-        lats         = ds.createVariable('Latitude', 'f4',   ('lat',),             zlib=True)
-        lons         = ds.createVariable('Longitude','f4',   ('lon',),             zlib=True)
-        Height       = ds.createVariable('Height',   'f4',   ('lon','lat','lev',), zlib=True)
-        U            = ds.createVariable('U',    np.float64, ('lon','lat','lev',), zlib=True)
-        U_SD         = ds.createVariable('U_SD', np.float64, ('lon','lat','lev',), zlib=True)
-        V            = ds.createVariable('V',    np.float64, ('lon','lat','lev',), zlib=True)
-        V_SD         = ds.createVariable('V_SD', np.float64, ('lon','lat','lev',), zlib=True)
+        lats         = ds.createVariable('latitude', 'f4',   ('lat',),             zlib=True)
+        lons         = ds.createVariable('longitude','f4',   ('lon',),             zlib=True)
+        Height       = ds.createVariable('height',   'f4',   ('lon','lat','lev',), zlib=True)
+        U            = ds.createVariable('u',    np.float64, ('lon','lat','lev',), zlib=True)
+        U_SD         = ds.createVariable('u_SD', np.float64, ('lon','lat','lev',), zlib=True)
+        V            = ds.createVariable('v',    np.float64, ('lon','lat','lev',), zlib=True)
+        V_SD         = ds.createVariable('v_SD', np.float64, ('lon','lat','lev',), zlib=True)
 
         # nc. variables' units
         lats.units   = 'degrees_north'
@@ -406,7 +405,7 @@ for filein in filenames:
         V_SD[:]    = v_total_SD
 
         ds.close()
-        print(f"\nWritten: {fileout_test}")
+        print(f"Written: {fileout_test}")
 
 
 
