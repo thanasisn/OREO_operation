@@ -27,19 +27,26 @@ D0: "global"
 
 ##  Used to download ERA5 and regrid
 D1:
-    name: "Initial inputs"
-    ## Latitude range
+    name: "Initial input domain"
+    ## Latitude range test
     North:    42
     South:    25
     LatStep:   2
-    ## Longitude range
+    ## Longitude range test
     West:    -80
     East:     25
     LonStep:   5
+    # ## Latitude range DOMOS
+    # North:    42
+    # South:   -62
+    # LatStep:   2
+    # ## Longitude range DOMOS
+    # West:    -125
+    # East:      25
+    # LonStep:    5
 
 
 ##  Set the years to download  --------------------------------------
 Range:
     start: 2019
     until: 2020
-

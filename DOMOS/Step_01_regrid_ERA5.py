@@ -24,8 +24,8 @@ import xarray as xr
 # import matplotlib.pyplot as plt
 # import xarray_regrid
 
-import matplotlib.backends.backend_pdf
-pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
+# import matplotlib.backends.backend_pdf
+# pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
 
 #  Load project functions
 sys.path.append("../")
@@ -49,7 +49,7 @@ if not os.path.isdir(cnf.ERA5.path_regrid):
     sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
 
 
-#  List input files exist in input dir  --------------------------------------
+#  Choose input files  -------------------------------------------------------
 #  Use expanded domain to find input files
 fl_North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
 fl_South = Oc.border_down(cnf.D1.South, cnf.D1.LatStep)
@@ -61,7 +61,6 @@ filenames.sort()
 if len(filenames) < 1:
     sys.exit(f"\nNo input file found in {cnf.ERA5.path_raw} !!\n")
 
-
 # ESA-DOMOS: "... the full coverage of the Atlantic Ocean (including dust emission sources of Africa and S. America,
 # the broader Atlantic Ocean, Caribbean Sea and Gulf of Mexico, confined between latitudes 40°N to 60°S), and of
 # temporal coverage at least between 2010 and 2020".
@@ -70,18 +69,11 @@ if len(filenames) < 1:
 # (II) DOMOS lat:  -65N:5:45N
 # (a wider domain is used here to account for (1) all fluxes and (2) the broader domain, and N.Atlandic Dust)
 
-
 ### DOMOS ####
-# lon_array       = np.arange(-125, 25)
-# lat_array       = np.arange( -60, 42)
-# DOMOS_lon_array = np.arange(-125, 25, 5)
-# DOMOS_lat_array = np.arange( -62, 42, 2)
-
 lat_array       = np.arange(cnf.D1.South, cnf.D1.North)
 lon_array       = np.arange(cnf.D1.West,  cnf.D1.East)
-DOMOS_lat_array = np.arange(cnf.D1.South, cnf.D1.North, cnf.D1.LatStep)
-DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,  cnf.D1.LonStep)
-
+DOMOS_lat_array = np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LatStep)
+DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LonStep)
 
 # Process raw ERA5 files  ------------------------------------------------------------
 for filein in filenames:
@@ -93,49 +85,25 @@ for filein in filenames:
     print(f"\nProcessing: {filein}")
 
     ## load on an numpy array
-    dataset = nc.Dataset(filein)
+    # dataset = nc.Dataset(filein)
 
     ## load ERA5 main file on a xarray
     DT = xr.open_dataset(filein)
-
-    ## create height variable
-    # DT = DT.assign(height = metpy.calc.geopotential_to_height(DT.z))
-    # DT['height'].attrs = {
-    #     'long_name':     'Height',
-    #     'units':         'm',
-    #     'standard_name': 'height'
-    # }
-
-    ## TODO find the correct multiple of boundaries to subset!
 
     ##  Get ERA5 spatial step
     lat_res = (np.unique(np.diff(DT.latitude.values))[0])
     lon_res = (np.unique(np.diff(DT.longitude.values))[0])
 
     ## apply a domain constrains
-    ## remove the one boundary for each dimension
     # DT = DT.sel(longitude = slice(cnf.ERA5.West,  cnf.ERA5.East ),
     #             latitude  = slice(cnf.ERA5.North, cnf.ERA5.South))
 
     ## original grid
     # DT.longitude.values
     # DT.latitude.values
-
-    # np.arange(cnf.D1.North, cnf.D1.South, -lon_res)
-    # np.arange(cnf.D1.West,  cnf.D1.East,  -lat_res)
-
-    # np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LonStep)
-    # np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LatStep)
-
     # DT.longitude.values.min()
     # DT.longitude.values.max()
-    # len(DT.longitude.values)
-    # len(np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LonStep))
-
-    # DT.latitude.values.min()
-    # DT.latitude.values.max()
     # len(DT.latitude.values)
-    # len(np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LatStep))
 
     # DT.dims
     # DT.info
@@ -143,59 +111,15 @@ for filein in filenames:
     # DT.coords
     # DT.u
     # DT.z.units
+    # DT.u.values
+    # DT.u.attrs
 
     ## test plot
     DT.u.isel(pressure_level = 0, valid_time = 0).plot()
     DT.v.isel(pressure_level = 0, valid_time = 0).plot()
 
-    # pdf.savefig( f1 )
-    # pdf.savefig( f2 )
-    # pdf.close()
-
-    # np.array(geopot)
-    # geopot.meters
-    # units.Quantity(geopot)
-    # DT['heigth'] = geopot
-
-    # DT.height.values
-    # DT.height.attrs
-    DT.u.values
-    DT.u.attrs
-    DT.dims
-    DT.data_vars
-
-
-    # ## re grid data
-    # dd = DT.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
-    #                 longitude = int( cnf.D1.LonStep / lon_res),
-    #                 boundary  = "trim").mean(skipna=True)
-
-    # dd.longitude.values
     # np.diff(dd.longitude.values)
-
-    # dd.latitude.values
     # np.diff(dd.latitude.values)
-
-    # dd.dims
-    # dd.data_vars
-    # dd.coords
-    # dd.info
-
-    # dd.u.isel(pressure_level = 0, valid_time = 0).plot()
-    # dd.v.isel(pressure_level = 0, valid_time = 0).plot()
-
-    # ## test write to nc
-    # comp = dict(zlib=True, complevel=5)
-    # encoding = {var: comp for var in DT.data_vars}
-    # dd.to_netcdf("test.nc", mode = 'w', engine = "netcdf4", encoding = encoding)
-
-
-    # ## with 'pad' may get under representation of values due to unequal bins
-    # bb = DT.coarsen(latitude  = int(-cnf.ERA5.LatStep / lat_res),
-    #                 longitude = int( cnf.ERA5.LonStep / lon_res),
-    #                 boundary  ='pad').mean()
-    # bb.longitude.values
-    # np.diff(bb.longitude.values)
 
     ## This could be replaced with a monthly file download and appropriate
     ## aggregation, but may take longer to download
@@ -256,11 +180,8 @@ for filein in filenames:
             ## create a data stamp
             sesdate = datetime(yyyy, 10, 15)
 
-        else:
-            continue
 
-
-        ## add geometric height
+        ##  Add geometric height  --------------------------------------------
         DTses = DTses.assign(height = metpy.calc.geopotential_to_height(DTses.z))
         DTses['height'].attrs = {
             'long_name':     'Geometric height',
@@ -271,7 +192,7 @@ for filein in filenames:
         ## Choose aggregation method to apply
         if cnf.ERA5.method == "mean":
 
-            ##  Calculations with xarray  -------------------------------------
+            ##  Calculations with xarray  ------------------------------------
 
             ## re grid data by mean of the grid
             dd = DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
@@ -280,6 +201,7 @@ for filein in filenames:
             ## mean of all months
             res = dd.mean(dim = ["valid_time"])
 
+            ## coarsen with 'pad' may get under representation of values due to unequal bins
 
             ## TODO make it one step to compute SD
             # DTses = DTses.assign(valid_time = DTses.valid_time.dt.month)
@@ -290,19 +212,19 @@ for filein in filenames:
             #               valid_time = 3,
             #               boundary  = "trim").mean(skipna=True)
 
-            ##  Manual calculation  -------------------------------------------
+            ##  Manual calculation  ------------------------------------------
 
             ## init target arrays
-            u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
-            u_total_SD   = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
-            u_total_N    = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            u_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
+            u_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
+            u_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
 
-            v_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
-            v_total_SD   = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
-            v_total_N    = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            v_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
+            v_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
+            v_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
 
-            z_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
-            height_mean  = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(DTses.pressure_level)))
+            z_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
+            height_mean  = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
 
             ## compute in each cell
             for ilon, lon in enumerate(DOMOS_lon_array):
@@ -342,6 +264,7 @@ for filein in filenames:
         else:
             sys.exit(f"\nUnknown method: {cnf.ERA5.method} !!\n")
 
+        ##  xarray export  ---------------------------------------------------
         ## add time stamp to the dataset
         res = res.expand_dims(time = [sesdate])
         ## store data
@@ -350,6 +273,7 @@ for filein in filenames:
         res.to_netcdf(fileout, mode = 'w', engine = "netcdf4", encoding = encoding)
         print(f"Written: {fileout}")
 
+        ##  numpy array export  -----------------------------------------------
         ## test export
         # creating nc. filename and initializing:
         ds           = nc.Dataset(fileout_test, 'w', format='NETCDF4')
@@ -364,11 +288,11 @@ for filein in filenames:
         # create nc. variables:
         lats         = ds.createVariable('latitude', 'f4',   ('lat',),             zlib=True)
         lons         = ds.createVariable('longitude','f4',   ('lon',),             zlib=True)
-        Height       = ds.createVariable('height',   'f4',   ('lon','lat','lev',), zlib=True)
-        U            = ds.createVariable('u',    np.float64, ('lon','lat','lev',), zlib=True)
-        U_SD         = ds.createVariable('u_SD', np.float64, ('lon','lat','lev',), zlib=True)
-        V            = ds.createVariable('v',    np.float64, ('lon','lat','lev',), zlib=True)
-        V_SD         = ds.createVariable('v_SD', np.float64, ('lon','lat','lev',), zlib=True)
+        Height       = ds.createVariable('height',   'f4',   ('lev','lat','lon',), zlib=True)
+        U            = ds.createVariable('u',    np.float64, ('lev','lat','lon',), zlib=True)
+        U_SD         = ds.createVariable('u_SD', np.float64, ('lev','lat','lon',), zlib=True)
+        V            = ds.createVariable('v',    np.float64, ('lev','lat','lon',), zlib=True)
+        V_SD         = ds.createVariable('v_SD', np.float64, ('lev','lat','lon',), zlib=True)
 
         # nc. variables' units
         lats.units   = 'degrees_north'
@@ -406,7 +330,6 @@ for filein in filenames:
 
         ds.close()
         print(f"Written: {fileout_test}")
-
 
 
     # # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
