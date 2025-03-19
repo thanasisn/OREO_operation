@@ -4,6 +4,13 @@
 #  We assume each host use a different profile for development, production etc
 #
 
+##  Some running modes switches  ------------------------------------
+mode:
+    Force: yes
+    Quiet: no
+    Test:  yes
+
+
 ##  Set logging paths  ----------------------------------------------
 LOGs:
     path: "/home/athan/OREO/operation/LOGs"
@@ -27,7 +34,7 @@ D0: "global"
 
 ##  Used to download ERA5 and regrid
 D1:
-    name: "Initial input domain"
+    name: "Input domain"
     ## Latitude range test
     North:    42
     South:    25
@@ -48,5 +55,5 @@ D1:
 
 ##  Set the years to download  --------------------------------------
 Range:
-    start: 2019
+    start: 2020
     until: 2020

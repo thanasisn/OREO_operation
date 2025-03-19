@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Created on Fri Dec  3 17:29:13 2021
-This script uses as input the ERA5 u, v, w, lat, lon, and geopotential and performs two tasks:
+This script uses as input the ERA5 u, v, w, lat, lon, and geopotential and
+performs two tasks:
     (a) converts geopotential to geometric height a.m.s.l.
     (b) regrids u, v, w wind components into a regular 1x1 deg2 grid.
 Here the script is applied for DOMOS domain.
@@ -36,13 +37,12 @@ tic = datetime.now()
 #  TEST
 # os.chdir("./DOMOS")
 
-#  Force the reprocess of the inputs
-FORCE = False
-FORCE = True
-
 #  Load configuration profile by host name  ----------------------------------
 config_file = f"../run_profiles/{os.uname()[1]}.yaml"
 cnf = Ou.get_configs(config_file)
+
+#  Force the reprocess of the inputs
+FORCE = cnf.mode.Force
 
 #  Check destination folder exists  ------------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
@@ -61,13 +61,15 @@ filenames.sort()
 if len(filenames) < 1:
     sys.exit(f"\nNo input file found in {cnf.ERA5.path_raw} !!\n")
 
-# ESA-DOMOS: "... the full coverage of the Atlantic Ocean (including dust emission sources of Africa and S. America,
-# the broader Atlantic Ocean, Caribbean Sea and Gulf of Mexico, confined between latitudes 40°N to 60°S), and of
-# temporal coverage at least between 2010 and 2020".
+# ESA-DOMOS: "... the full coverage of the Atlantic Ocean (including dust
+# emission sources of Africa and S. America, the broader Atlantic Ocean,
+# Caribbean Sea and Gulf of Mexico, confined between latitudes 40°N to 60°S),
+# and of temporal coverage at least between 2010 and 2020".
 # Therefore:
 # (I)  DOMOS lon: -105E:5:25E
 # (II) DOMOS lat:  -65N:5:45N
-# (a wider domain is used here to account for (1) all fluxes and (2) the broader domain, and N.Atlandic Dust)
+# (a wider domain is used here to account for (1) all fluxes and (2) the
+# broader domain, and N.Atlandic Dust)
 
 ### DOMOS ####
 lat_array       = np.arange(cnf.D1.South, cnf.D1.North)
@@ -215,16 +217,14 @@ for filein in filenames:
             ##  Manual calculation  ------------------------------------------
 
             ## init target arrays
-            u_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
-            u_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
-            u_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
-
-            v_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
-            v_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
-            v_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
-
-            z_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
-            height_mean  = np.empty((len(DTses.pressure_level), len(DOMOS_lat_array), len(DOMOS_lon_array)))
+            u_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            u_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            u_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            v_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            v_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            v_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            z_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            height_mean  = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
 
             ## compute in each cell
             for ilon, lon in enumerate(DOMOS_lon_array):
@@ -241,16 +241,14 @@ for filein in filenames:
                             drop =True)
 
                         ## cell statistics invert index order for nc
-                        u_total_mean[klev, jlat, ilon] = np.mean(                   cell.u.values)
-                        u_total_SD  [klev, jlat, ilon] = np.std(                    cell.u.values)
-                        u_total_N   [klev, jlat, ilon] = np.count_nonzero(~np.isnan(cell.u.values))
-
-                        v_total_mean[klev, jlat, ilon] = np.mean(                   cell.v.values)
-                        v_total_SD  [klev, jlat, ilon] = np.std(                    cell.v.values)
-                        v_total_N   [klev, jlat, ilon] = np.count_nonzero(~np.isnan(cell.v.values))
-
-                        z_total_mean[klev, jlat, ilon] = np.mean(                   cell.z.values)
-                        height_mean [klev, jlat, ilon] = np.mean(                   cell.height.values)
+                        u_total_mean[klev, ilon, jlat] = np.mean(                   cell.u.values)
+                        u_total_SD  [klev, ilon, jlat] = np.std(                    cell.u.values)
+                        u_total_N   [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.u.values))
+                        v_total_mean[klev, ilon, jlat] = np.mean(                   cell.v.values)
+                        v_total_SD  [klev, ilon, jlat] = np.std(                    cell.v.values)
+                        v_total_N   [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.v.values))
+                        z_total_mean[klev, ilon, jlat] = np.mean(                   cell.z.values)
+                        height_mean [klev, ilon, jlat] = np.mean(                   cell.height.values)
 
             del dd
         elif cnf.ERA5.method == "median":
@@ -274,27 +272,27 @@ for filein in filenames:
         print(f"Written: {fileout}")
 
         ##  numpy array export  -----------------------------------------------
-        ## test export
         # creating nc. filename and initializing:
         ds           = nc.Dataset(fileout_test, 'w', format='NETCDF4')
 
         # create nc. dimensions:
-        longitude    = DOMOS_lon_array + cnf.D1.LonStep / 2
-        latitude     = DOMOS_lat_array + cnf.D1.LatStep / 2
         lev          = ds.createDimension('lev', len(DTses.pressure_level))
-        lat          = ds.createDimension('lat', len(latitude))
-        lon          = ds.createDimension('lon', len(longitude))
+        # lat          = ds.createDimension('lat', len(latitude))
+        # lon          = ds.createDimension('lon', len(longitude))
+        latitude     = ds.createDimension('latitude',  len(DOMOS_lat_array))
+        longitude    = ds.createDimension('longitude', len(DOMOS_lon_array))
+
 
         # create nc. variables:
-        lats         = ds.createVariable('latitude', 'f4',   ('lat',),             zlib=True)
-        lons         = ds.createVariable('longitude','f4',   ('lon',),             zlib=True)
-        Height       = ds.createVariable('height',   'f4',   ('lev','lat','lon',), zlib=True)
-        U            = ds.createVariable('u',    np.float64, ('lev','lat','lon',), zlib=True)
-        U_SD         = ds.createVariable('u_SD', np.float64, ('lev','lat','lon',), zlib=True)
-        V            = ds.createVariable('v',    np.float64, ('lev','lat','lon',), zlib=True)
-        V_SD         = ds.createVariable('v_SD', np.float64, ('lev','lat','lon',), zlib=True)
+        lats         = ds.createVariable('latitude', 'f4',   ('latitude', ),                    zlib=True)
+        lons         = ds.createVariable('longitude','f4',   ('longitude',),                    zlib=True)
+        Height       = ds.createVariable('height',   'f4',   ('lev', 'longitude', 'latitude',), zlib=True)
+        U            = ds.createVariable('u',    np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
+        U_SD         = ds.createVariable('u_SD', np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
+        V            = ds.createVariable('v',    np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
+        V_SD         = ds.createVariable('v_SD', np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
 
-        # nc. variables' units
+        # nc. variables units
         lats.units   = 'degrees_north'
         lons.units   = 'degrees_east'
         Height.units = 'm'
@@ -303,7 +301,7 @@ for filein in filenames:
         V.units      = 'm s**-1'
         V_SD.units   = 'm s**-1'
 
-        # nc. variables' "long names":
+        # nc. variables "long names":
         lats.long_name   = 'Latitude'
         lons.long_name   = 'Longitude'
         Height.long_name = 'Height'
@@ -312,7 +310,7 @@ for filein in filenames:
         V.long_name      = 'V component of wind'
         V_SD.long_name   = 'V component of wind SD'
 
-        # nc. variables' "standard names":
+        # nc. variables "standard names":
         Height.standard_name = 'height'
         U.standard_name      = 'eastward_wind'
         U_SD.standard_name   = 'eastward_wind_SD'
@@ -320,8 +318,8 @@ for filein in filenames:
         V_SD.standard_name   = 'northward_wind_SD'
 
         # nc. saving datasets
-        lats[:]    = latitude
-        lons[:]    = longitude
+        lats[:]    = DOMOS_lat_array + cnf.D1.LatStep / 2
+        lons[:]    = DOMOS_lon_array + cnf.D1.LonStep / 2
         Height[:]  = z_total_mean
         U[:]       = u_total_mean
         U_SD[:]    = u_total_SD
@@ -330,7 +328,7 @@ for filein in filenames:
 
         ds.close()
         print(f"Written: {fileout_test}")
-
+        sys.exit("tests")
 
     # # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
     # # ERA longitude from 0->360 deg to -180->180 deg.
