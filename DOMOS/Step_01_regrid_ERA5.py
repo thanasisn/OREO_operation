@@ -19,8 +19,8 @@ import netCDF4  as nc
 import numpy    as np
 import metpy.calc
 import xarray as xr
+from   metpy.units import units
 
-# from   metpy.units import units
 # import cartopy.crs as ccrs
 # import xarray_regrid
 
@@ -73,14 +73,12 @@ DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LonStep)
 # Process raw ERA5 files  ------------------------------------------------------------
 for filein in filenames:
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
-    ## limit data range
+    
+    ##  Limit data time range
     if not cnf.Range.start <= yyyy <= cnf.Range.until:
         continue
 
     print(f"\nProcessing: {filein}")
-
-    ## load on an numpy array
-    # dataset = nc.Dataset(filein)
 
     ## load ERA5 main file on a xarray
     DT = xr.open_dataset(filein)
@@ -112,12 +110,7 @@ for filein in filenames:
     DT.u.isel(pressure_level = 0, valid_time = 0).plot()
     DT.v.isel(pressure_level = 0, valid_time = 0).plot()
 
-    # np.diff(dd.longitude.values)
-    # np.diff(dd.latitude.values)
-
-    ## This could be replaced with a monthly file download and appropriate
-    ## aggregation, but may take longer to download
-    ## for now we keep original approach
+    ##  Compute by season of the year
     seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
     for season_idx, season in enumerate(seasons):
         print(f"{yyyy} {season}")
@@ -126,22 +119,18 @@ for filein in filenames:
             cnf.ERA5.path_regrid,
             f"ERA5_{yyyy}_{season}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
         )
-        fileout_test = os.path.join(
-            cnf.ERA5.path_regrid,
-            f"ERA5_{yyyy}_{season}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E_test.nc"
-        )
 
-        ## skip existing files
+        ## skip already existing files
         if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
             continue
 
-        ## choose data by season
+        ## select data by season
         if season == 'Q1_DJF':
-            # File of previous year - to read December for DJF season
+            # File of previous year to read December for DJF season
             previous_file = list(filter(lambda x:'ERA5_' + str(yyyy - 1) in x, filenames))
             if (len(previous_file)!=1):
                 print("SKIP season! No file for the previous year found\n")
-                continue # seasons iteration
+                continue
 
             ## load ERA5 main file on a xarray
             DTpre = xr.open_dataset(previous_file[0])
@@ -158,166 +147,173 @@ for filein in filenames:
 
         elif season == 'Q2_MAM':
             ## select main data explicitly
-            DTses = DT.sel(valid_time = slice(f"{yyyy}-03-01", f"{yyyy}-05-01"))
-            ## create a data stamp
+            DTses   = DT.sel(valid_time = slice(f"{yyyy}-03-01", f"{yyyy}-05-01"))
             sesdate = datetime(yyyy, 3, 15)
 
         elif season == 'Q3_JJA':
             ## select main data explicitly
-            DTses = DT.sel(valid_time = slice(f"{yyyy}-06-01", f"{yyyy}-08-01"))
-            ## create a data stamp
+            DTses   = DT.sel(valid_time = slice(f"{yyyy}-06-01", f"{yyyy}-08-01"))
             sesdate = datetime(yyyy, 7, 15)
 
         elif season == 'Q4_SON':
             ## select main data explicitly
-            DTses = DT.sel(valid_time = slice(f"{yyyy}-09-01", f"{yyyy}-11-01"))
-            ## create a data stamp
+            DTses   = DT.sel(valid_time = slice(f"{yyyy}-09-01", f"{yyyy}-11-01"))
             sesdate = datetime(yyyy, 10, 15)
 
         ##  Add geometric height  --------------------------------------------
-        DTses = DTses.assign(height = metpy.calc.geopotential_to_height(DTses.z))
+        DTses = DTses.assign(
+            height = xr.DataArray(
+                metpy.calc.geopotential_to_height(
+                     units.Quantity(DTses.z.values, DTses.z.units)
+                ),
+                coords = DTses.coords,
+            )
+        )
         DTses['height'].attrs = {
             'long_name':     'Geometric height',
             'units':         'm',
             'standard_name': 'height'
         }
+        DTses.height.values
 
-        ## Choose aggregation method to apply
-        if cnf.ERA5.method == "mean":
+        # ##  Calculations with xarray  ------------------------------------
+        # dd = DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
+        #                    longitude = int( cnf.D1.LonStep / lon_res),
+        #                    boundary  = "trim").mean(skipna = True)
+        # ## mean of all months
+        # res = dd.mean(dim = ["valid_time"])
+        # ## coarsen with 'pad' may get under representation of values due to unequal bins
+        # DTses = DTses.assign(valid_time = DTses.valid_time.dt.month)
+        #
+        # ## this should work
+        # DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
+        #               longitude = int( cnf.D1.LonStep / lon_res),
+        #               valid_time = 3,
+        #               boundary  = "trim").mean(skipna=True)
 
-            ##  Calculations with xarray  ------------------------------------
+        ##  Iterative calculations  ------------------------------------------
 
-            ## re grid data by mean of the grid
-            dd = DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
-                               longitude = int( cnf.D1.LonStep / lon_res),
-                               boundary  = "trim").mean(skipna = True)
-            ## mean of all months
-            res = dd.mean(dim = ["valid_time"])
+        ## init target arrays
+        u_total_mean   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        u_total_median = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        u_total_SD     = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        u_total_N      = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        v_total_mean   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        v_total_median = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        v_total_SD     = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        v_total_N      = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        # z_total_mean   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+        height_mean    = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
 
-            ## coarsen with 'pad' may get under representation of values due to unequal bins
+        ##  Compute stats in each cell
+        for ilon, lon in enumerate(DOMOS_lon_array):
+            for jlat, lat in enumerate(DOMOS_lat_array):
+                for klev, lev in enumerate(DTses.pressure_level):
 
-            ## TODO make it one step to compute SD
-            # DTses = DTses.assign(valid_time = DTses.valid_time.dt.month)
-            #
-            # ## this should work
-            # DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
-            #               longitude = int( cnf.D1.LonStep / lon_res),
-            #               valid_time = 3,
-            #               boundary  = "trim").mean(skipna=True)
+                    ## This includes each of the limits value two times in order to centre cells
+                    cell = DTses.where(
+                        (DTses.longitude >= lon) &
+                        (DTses.longitude <= lon + cnf.D1.LonStep) &
+                        (DTses.latitude  >= lat) &
+                        (DTses.latitude  <= lat + cnf.D1.LatStep) &
+                        (DTses.pressure_level == lev),
+                        drop = True)
 
-            ##  Manual calculation  ------------------------------------------
+                    ## gather all statistics for each cell
+                    u_total_mean  [klev, ilon, jlat] = np.mean(                   cell.u.values)
+                    u_total_median[klev, ilon, jlat] = np.median(                 cell.u.values)
+                    u_total_SD    [klev, ilon, jlat] = np.std(                    cell.u.values)
+                    u_total_N     [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.u.values))
+                    v_total_mean  [klev, ilon, jlat] = np.mean(                   cell.v.values)
+                    v_total_median[klev, ilon, jlat] = np.median(                 cell.v.values)
+                    v_total_SD    [klev, ilon, jlat] = np.std(                    cell.v.values)
+                    v_total_N     [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.v.values))
+                    # z_total_mean  [klev, ilon, jlat] = np.mean(                   cell.z.values)
+                    height_mean   [klev, ilon, jlat] = np.mean(                   cell.height.values)
 
-            ## init target arrays
-            u_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-            u_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-            u_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-            v_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-            v_total_SD   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-            v_total_N    = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-            z_total_mean = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-            height_mean  = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-
-            ## compute in each cell
-            for ilon, lon in enumerate(DOMOS_lon_array):
-                for jlat, lat in enumerate(DOMOS_lat_array):
-                    for klev, lev in enumerate(DTses.pressure_level):
-
-                        ## FIXME this includes each of the limits value two times !!!
-                        cell = DTses.where(
-                            (DTses.longitude >= lon) &
-                            (DTses.longitude <= lon + cnf.D1.LonStep) &
-                            (DTses.latitude  >= lat) &
-                            (DTses.latitude  <= lat + cnf.D1.LatStep) &
-                            (DTses.pressure_level == lev),
-                            drop =True)
-
-                        ## cell statistics invert index order for nc
-                        u_total_mean[klev, ilon, jlat] = np.mean(                   cell.u.values)
-                        u_total_SD  [klev, ilon, jlat] = np.std(                    cell.u.values)
-                        u_total_N   [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.u.values))
-                        v_total_mean[klev, ilon, jlat] = np.mean(                   cell.v.values)
-                        v_total_SD  [klev, ilon, jlat] = np.std(                    cell.v.values)
-                        v_total_N   [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.v.values))
-                        z_total_mean[klev, ilon, jlat] = np.mean(                   cell.z.values)
-                        height_mean [klev, ilon, jlat] = np.mean(                   cell.height.values)
-
-            del dd
-        elif cnf.ERA5.method == "median":
-            ## re grid data by median of the grid
-            dd = DTses.coarsen(latitude  = int(-cnf.D1.LatStep / lat_res),
-                               longitude = int( cnf.D1.LonStep / lon_res),
-                               boundary  = "trim").median(skipna = True)
-            ## median of all moths
-            res = dd.median(dim = ["valid_time"])
-            del dd
-        else:
-            sys.exit(f"\nUnknown method: {cnf.ERA5.method} !!\n")
-
-        ##  xarray export  ---------------------------------------------------
-        ## add time stamp to the dataset
-        res = res.expand_dims(time = [sesdate])
-        ## store data
-        comp = dict(zlib=True, complevel=5)
-        encoding = {var: comp for var in res.data_vars}
-        res.to_netcdf(fileout, mode = 'w', engine = "netcdf4", encoding = encoding)
-        print(f"Written: {fileout}")
+        # ##  xarray export  ---------------------------------------------------
+        # ## add time stamp to the dataset
+        # res = res.expand_dims(time = [sesdate])
+        # ## store data
+        # comp = dict(zlib=True, complevel=5)
+        # encoding = {var: comp for var in res.data_vars}
+        # res.to_netcdf(fileout, mode = 'w', engine = "netcdf4", encoding = encoding)
+        # print(f"Written: {fileout}")
 
         ##  numpy array export  -----------------------------------------------
-        # creating nc. filename and initializing:
-        ds           = nc.Dataset(fileout_test, 'w', format='NETCDF4')
+        ds           = nc.Dataset(fileout, 'w', format='NETCDF4')
 
-        # create nc. dimensions:
-        lev          = ds.createDimension('lev', len(DTses.pressure_level))
-        # lat          = ds.createDimension('lat', len(latitude))
-        # lon          = ds.createDimension('lon', len(longitude))
-        latitude     = ds.createDimension('latitude',  len(DOMOS_lat_array))
-        longitude    = ds.createDimension('longitude', len(DOMOS_lon_array))
+        ##  Define coordinates
+        lev          = ds.createDimension('pressure_level', len(DTses.pressure_level))
+        latitude     = ds.createDimension('latitude',       len(DOMOS_lat_array))
+        longitude    = ds.createDimension('longitude',      len(DOMOS_lon_array))
 
-        # create nc. variables:
-        lats         = ds.createVariable('latitude',  'f4',  ('latitude', ),                    zlib=True)
-        lons         = ds.createVariable('longitude', 'f4',  ('longitude',),                    zlib=True)
-        Height       = ds.createVariable('height',    'f4',  ('lev', 'longitude', 'latitude',), zlib=True)
-        U            = ds.createVariable('u',    np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
-        U_SD         = ds.createVariable('u_SD', np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
-        V            = ds.createVariable('v',    np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
-        V_SD         = ds.createVariable('v_SD', np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
+        DTses.coords
+        ##  Create variables data types
+        lats         = ds.createVariable('latitude',        'f4', ('latitude', ),                    zlib=True)
+        lons         = ds.createVariable('longitude',       'f4', ('longitude',),                    zlib=True)
+        height       = ds.createVariable('height',          'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        U_mean       = ds.createVariable('u_mean',    np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        U_median     = ds.createVariable('u_median',  np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        U_SD         = ds.createVariable('u_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        U_N          = ds.createVariable('u_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        V_mean       = ds.createVariable('v_mean',    np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        V_median     = ds.createVariable('v_median',  np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        V_SD         = ds.createVariable('v_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+        V_N          = ds.createVariable('v_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
 
-        # nc. variables units
-        lats.units   = 'degrees_north'
-        lons.units   = 'degrees_east'
-        Height.units = 'm'
-        U.units      = 'm s**-1'
-        U_SD.units   = 'm s**-1'
-        V.units      = 'm s**-1'
-        V_SD.units   = 'm s**-1'
+        ##  Set units attributes
+        lats.units     = 'degrees_north'
+        lons.units     = 'degrees_east'
+        height.units   = 'm'
+        U_mean.units   = 'm s**-1'
+        U_median.units = 'm s**-1'
+        U_SD.units     = 'm s**-1'
+        U_N.units      = ''
+        V_mean.units   = 'm s**-1'
+        V_median.units = 'm s**-1'
+        V_SD.units     = 'm s**-1'
+        V_N.units      = ''
 
-        # nc. variables "long names":
-        lats.long_name   = 'Latitude'
-        lons.long_name   = 'Longitude'
-        Height.long_name = 'Height'
-        U.long_name      = 'U component of wind'
-        U_SD.long_name   = 'U component of wind SD'
-        V.long_name      = 'V component of wind'
-        V_SD.long_name   = 'V component of wind SD'
+        ##  Set long name attribute
+        lats.long_name     = 'Latitude'
+        lons.long_name     = 'Longitude'
+        height.long_name   = 'Height'
+        U_mean.long_name   = 'U mean component of wind'
+        U_median.long_name = 'U median component of wind'
+        U_SD.long_name     = 'U SD component of wind'
+        U_N.long_name      = 'U component of wind count'
+        V_mean.long_name   = 'V mean component of wind'
+        V_median.long_name = 'V median component of wind'
+        V_SD.long_name     = 'V SD component of wind'
+        V_N.long_name      = 'V component of wind count'
 
-        # nc. variables "standard names":
-        Height.standard_name = 'height'
-        U.standard_name      = 'eastward_wind'
-        U_SD.standard_name   = 'eastward_wind_SD'
-        V.standard_name      = 'northward_wind'
-        V_SD.standard_name   = 'northward_wind_SD'
+        ##  Set standard name attribute
+        height.standard_name   = 'height'
+        U_mean.standard_name   = 'eastward_wind_mean'
+        U_median.standard_name = 'eastward_wind_median'
+        U_SD.standard_name     = 'eastward_wind_SD'
+        U_N.standard_name      = 'eastward_wind_count'
+        V_mean.standard_name   = 'northward_wind_mean'
+        V_median.standard_name = 'northward_wind_median'
+        V_SD.standard_name     = 'northward_wind_SD'
+        V_N.standard_name      = 'northward_wind_count'
 
-        # nc. saving datasets
-        lats[:]    = DOMOS_lat_array + cnf.D1.LatStep / 2
-        lons[:]    = DOMOS_lon_array + cnf.D1.LonStep / 2
-        Height[:]  = z_total_mean
-        U[:]       = u_total_mean
-        U_SD[:]    = u_total_SD
-        V[:]       = v_total_mean
-        V_SD[:]    = v_total_SD
+        ##  Assign arrays to datasets
+        lats[:]     = DOMOS_lat_array + cnf.D1.LatStep / 2
+        lons[:]     = DOMOS_lon_array + cnf.D1.LonStep / 2
+        height[:]   = height_mean
+        U_mean[:]   = u_total_mean
+        U_median[:] = u_total_median
+        U_SD[:]     = u_total_SD
+        U_N[:]      = u_total_N
+        V_mean[:]   = v_total_mean
+        V_median[:] = v_total_median
+        V_SD[:]     = v_total_SD
+        V_N[:]      = v_total_N
 
         ds.close()
-        print(f"Written: {fileout_test}")
+        print(f"Written: {fileout}")
         sys.exit("wait")
 
     # # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
@@ -366,16 +362,10 @@ for filein in filenames:
     # dataset_height_ΙΙ       = metpy.calc.geopotential_to_height(dataset_geopotential_ΙΙ)
     # dataset_height_ΙΙ       = np.array(dataset_height_ΙΙ)
 
-    # # ERA time:
-    # # units     = hours since 1900-01-01 00:00:00.0
-    # # long_name = time
-    # # calendar  = gregorian
-    # # loop to produce seasonal-mean files
 
     # seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
     # for season_idx, season in enumerate(seasons):
 
-    #     fileout = cnf.ERA5.path_regrid + "/ERA5_%s_%s_%sN%sS%sW%sE.nc" % (yyyy, season, cnf.ERA5.North, cnf.ERA5.South, cnf.ERA5.West, cnf.ERA5.East)
 
     #     # initializing: u-mean,SD / v-mean,SD / w-mean,SD / z-mean for 1x1 deg2 grid resolution.
     #     u_total_mean = np.empty((len(DOMOS_lon_array), len(DOMOS_lat_array), len(dataset_level)))
@@ -444,62 +434,6 @@ for filein in filenames:
     #                 u_total_SD[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = u_total[idx_level]
     #                 v_total_SD[np.where(lon == DOMOS_lon_array),np.where(lat == DOMOS_lat_array),idx_level] = v_total[idx_level]
 
-    #     #  --- Saving ERA u, v, w, height monthly mean dataset as NetCDF --- #
-
-    #     # creating nc. filename and initializing:
-    #     ds           = nc.Dataset(fileout, 'w', format='NETCDF4')
-
-    #     # create nc. dimensions:
-    #     longitude    = DOMOS_lon_array + cnf.ERA5.LonStep / 2
-    #     latitude     = DOMOS_lat_array + cnf.ERA5.LatStep / 2
-    #     lev          = ds.createDimension('lev', len(dataset_level))
-    #     lat          = ds.createDimension('lat', len(latitude))
-    #     lon          = ds.createDimension('lon', len(longitude))
-
-    #     # create nc. variables:
-    #     lats         = ds.createVariable('Latitude', 'f4',   ('lat',),             zlib=True)
-    #     lons         = ds.createVariable('Longitude','f4',   ('lon',),             zlib=True)
-    #     Height       = ds.createVariable('Height',   'f4',   ('lon','lat','lev',), zlib=True)
-    #     U            = ds.createVariable('U',    np.float64, ('lon','lat','lev',), zlib=True)
-    #     U_SD         = ds.createVariable('U_SD', np.float64, ('lon','lat','lev',), zlib=True)
-    #     V            = ds.createVariable('V',    np.float64, ('lon','lat','lev',), zlib=True)
-    #     V_SD         = ds.createVariable('V_SD', np.float64, ('lon','lat','lev',), zlib=True)
-
-    #     # nc. variables' units
-    #     lats.units   = 'degrees_north'
-    #     lons.units   = 'degrees_east'
-    #     Height.units = 'm'
-    #     U.units      = 'm s**-1'
-    #     U_SD.units   = 'm s**-1'
-    #     V.units      = 'm s**-1'
-    #     V_SD.units   = 'm s**-1'
-
-    #     # nc. variables' "long names":
-    #     lats.long_name   = 'Latitude'
-    #     lons.long_name   = 'Longitude'
-    #     Height.long_name = 'Height'
-    #     U.long_name      = 'U component of wind'
-    #     U_SD.long_name   = 'U component of wind SD'
-    #     V.long_name      = 'V component of wind'
-    #     V_SD.long_name   = 'V component of wind SD'
-
-    #     # nc. variables' "standard names":
-    #     Height.standard_name = 'height'
-    #     U.standard_name      = 'eastward_wind'
-    #     U_SD.standard_name   = 'eastward_wind_SD'
-    #     V.standard_name      = 'northward_wind'
-    #     V_SD.standard_name   = 'northward_wind_SD'
-
-    #     # nc. saving datasets
-    #     lats[:]    = latitude
-    #     lons[:]    = longitude
-    #     Height[:]  = z_total_mean
-    #     U[:]       = u_total_mean
-    #     U_SD[:]    = u_total_SD
-    #     V[:]       = v_total_mean
-    #     V_SD[:]    = v_total_SD
-
-    #     ds.close()
 
 
 #  SCRIPT END  ---------------------------------------------------------------
