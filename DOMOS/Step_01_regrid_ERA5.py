@@ -22,20 +22,14 @@ import xarray as xr
 
 # from   metpy.units import units
 # import cartopy.crs as ccrs
-# import matplotlib.pyplot as plt
 # import xarray_regrid
 
-# import matplotlib.backends.backend_pdf
-# pdf = matplotlib.backends.backend_pdf.PdfPages("output.pdf")
 
-#  Load project functions
+#  Load project functions  ---------------------------------------------------
 sys.path.append("../")
 import oreo_mod.utils as Ou
 import oreo_mod.calc  as Oc
 tic = datetime.now()
-
-#  TEST
-# os.chdir("./DOMOS")
 
 #  Load configuration profile by host name  ----------------------------------
 config_file = f"../run_profiles/{os.uname()[1]}.yaml"
@@ -47,7 +41,6 @@ FORCE = cnf.mode.Force
 #  Check destination folder exists  ------------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
     sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
-
 
 #  Choose input files  -------------------------------------------------------
 #  Use expanded domain to find input files
@@ -106,7 +99,6 @@ for filein in filenames:
     # DT.longitude.values.min()
     # DT.longitude.values.max()
     # len(DT.latitude.values)
-
     # DT.dims
     # DT.info
     # DT.data_vars
@@ -181,7 +173,6 @@ for filein in filenames:
             DTses = DT.sel(valid_time = slice(f"{yyyy}-09-01", f"{yyyy}-11-01"))
             ## create a data stamp
             sesdate = datetime(yyyy, 10, 15)
-
 
         ##  Add geometric height  --------------------------------------------
         DTses = DTses.assign(height = metpy.calc.geopotential_to_height(DTses.z))
@@ -282,11 +273,10 @@ for filein in filenames:
         latitude     = ds.createDimension('latitude',  len(DOMOS_lat_array))
         longitude    = ds.createDimension('longitude', len(DOMOS_lon_array))
 
-
         # create nc. variables:
-        lats         = ds.createVariable('latitude', 'f4',   ('latitude', ),                    zlib=True)
-        lons         = ds.createVariable('longitude','f4',   ('longitude',),                    zlib=True)
-        Height       = ds.createVariable('height',   'f4',   ('lev', 'longitude', 'latitude',), zlib=True)
+        lats         = ds.createVariable('latitude',  'f4',  ('latitude', ),                    zlib=True)
+        lons         = ds.createVariable('longitude', 'f4',  ('longitude',),                    zlib=True)
+        Height       = ds.createVariable('height',    'f4',  ('lev', 'longitude', 'latitude',), zlib=True)
         U            = ds.createVariable('u',    np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
         U_SD         = ds.createVariable('u_SD', np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
         V            = ds.createVariable('v',    np.float64, ('lev', 'longitude', 'latitude',), zlib=True)
@@ -328,7 +318,7 @@ for filein in filenames:
 
         ds.close()
         print(f"Written: {fileout_test}")
-        sys.exit("tests")
+        sys.exit("wait")
 
     # # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
     # # ERA longitude from 0->360 deg to -180->180 deg.

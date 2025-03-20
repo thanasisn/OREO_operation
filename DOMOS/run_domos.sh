@@ -30,6 +30,12 @@ set +e
 
 
 
+info "Activate Conda environment"
+source $HOME/PROGRAMS/miniconda3/bin/activate && \
+  conda activate oreo ||                         \
+  { echo "Failed to activate environment"; exit 1; }
+
+
 info "Get raw data from ERA5"
 ./Step_00_get_ERA5_data.py
 
@@ -38,6 +44,8 @@ info "Do regrid on ERA5 data"
 ./Step_01_regrid_ERA5.py
 
 
+info "Deactivate Conda environment"
+conda deactivate
 
 info "END in $SECONDS seconds"
 exit 0
