@@ -6,9 +6,9 @@
 
 ##  Some running modes switches  ------------------------------------
 mode:
-    Force: yes
+    Force: no
     Quiet: no
-    Test:  yes
+    Test:  no
 
 
 ##  Set logging paths  ----------------------------------------------
@@ -24,8 +24,10 @@ ERA5:
     path_raw:    "/home/athan/DATA/ERA5_domos_raw"
     ## output of regrided
     path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
-    ## method used to aggregate data
-    method:      "mean"
+
+OREO:
+    path_output: "/home/athan/DATA/ERA5_oreo"
+
 
 ##  Define domains  -------------------------------------------------
 
@@ -35,14 +37,16 @@ D0: "global"
 ##  Used to download ERA5 and regrid
 D1:
     name: "Input domain"
+    Monthly:  yes
+    Seasonal: yes
     ## Latitude range test
-    North:    42
-    South:    25
-    LatStep:   2
+    North:     42
+    South:     25
+    LatStep:    2
     ## Longitude range test
-    West:    -80
-    East:     25
-    LonStep:   5
+    West:     -80
+    East:      25
+    LonStep:    5
     # ## Latitude range DOMOS
     # North:    42
     # South:   -62

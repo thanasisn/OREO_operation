@@ -52,7 +52,6 @@ SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
 
-
 ##  Check destination folder exists  ------------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
     sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
@@ -154,7 +153,7 @@ for filein in filenames:
                 # File of previous year to read December for DJF season
                 previous_file = list(filter(lambda x:'ERA5_' + str(yyyy - 1) in x, filenames))
                 if (len(previous_file)!=1):
-                    print("SKIP season! No file for the previous year found\n")
+                    print("SKIP season! No file for the {yyyy - 1} found\n")
                     continue
 
                 ## load ERA5 main file on a xarray

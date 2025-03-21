@@ -2,8 +2,12 @@
 """
 Created on Wed Jan  5 08:54:57 2022
 Establishes the required EO-and-ERA5 DOMOS dataset in the same L3 1x1 grid resolution and monthly-mean.
-@author: proes
+
+@author: proestakis, thanasisn
 """
+
+import os
+import sys
 
 import netCDF4  as nc
 import numpy    as np
@@ -20,22 +24,80 @@ from   metpy.units import units
 from   pathlib import Path
 import numpy.ma as ma
 
+
+##  Load project functions  --------------------------------------------------
+sys.path.append("../")
+import oreo_mod.utils as Ou
+import oreo_mod.calc  as Oc
+tic = datetime.now()
+
+##  Load configuration profile by host name  ---------------------------------
+config_file = f"../run_profiles/{os.uname()[1]}.yaml"
+cnf = Ou.get_configs(config_file)
+
+##  Set switches  ------------------------------------------------------------
+
+## overwrite output files 
+FORCE = cnf.mode.Force
+FORCE = True
+
+## export my each moth
+MONTHLY  = False
+MONTHLY  = cnf.D1.Monthly
+
+## export be season
+SEASONAL = False
+# SEASONAL = cnf.D1.Seasonal
+
+
+##  Allow only one case to run at the time  ----------------------------------
+if SEASONAL == MONTHLY:
+    print("Seasonal:", SEASONAL)
+    print("Monthly: ", MONTHLY)
+    sys.exit("Choose only SEASONAL or only MONTHLY")
+    
+
+##  Check destination folder exists  -----------------------------------------
+if not os.path.isdir(cnf.OREO.path_output):
+    sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
+
+
+
+##  Temporal aggregation setup  ----------------------------------------------
+if SEASONAL == True:
+    print("Work on seasonal data")
+    
+    filenames = glob.glob(
+        f"{cnf.ERA5.path_regrid}/Seasonal_{cnf.D1.LatStep}x{cnf.D1.LonStep}/ERA5_*_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
+    )
+
+elif MONTHLY == True:
+    print("Work on monthly data")
+
+    filenames = glob.glob(
+        f"{cnf.ERA5.path_regrid}/Monthly_{cnf.D1.LatStep}x{cnf.D1.LonStep}/ERA5_*_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
+    )
+
+
+filenames.sort()
+
+
+sys.exit("wait")
+
+
+
+
 # directory paths of input datasets
 ERA_path       = r"M:\DOMOS\datasets\2x5_seasonal\ERA5\processed"
 LIVAS_path     = r"M:\LIVAS\2022-01_grid"
-CAMS_path      = r"M:\DOMOS\datasets\2x5_seasonal\CAMS\processed"
+# CAMS_path      = r"M:\DOMOS\datasets\2x5_seasonal\CAMS\processed"
 # directory path of output datasets
 output_path    = r"M:\DOMOS\datasets\2x5_seasonal\Step_II"
 
-##########################################################################################
-####                     functions to locate files                                    ####
-##########################################################################################
-
-# Initializing timer:
-startTime = datetime.now()
 
 # checking if input files exist in input dir.
 ERA_filenames = next(walk(ERA_path), (None, None, []))[2]  # [] if no file
+
 
 for ERA_file_count,ERA_filename in enumerate(ERA_filenames):
 
@@ -86,16 +148,16 @@ for ERA_file_count,ERA_filename in enumerate(ERA_filenames):
     if exists(fn):
         continue
 
-    ######################
-    ###       CAMS     ###
-    ######################    
-    
-    CAMS_file      = CAMS_path + '\\' + 'CAMS_' + ERA_substrings[0] + '_' + ERA_season + '.nc' 
-    CAMS_dataset   = nc.Dataset(CAMS_file) 
-    CAMS_latitude  = CAMS_dataset['Latitude'][:]
-    CAMS_longitude = CAMS_dataset['Longitude'][:]      
-    CAMS_Height    = CAMS_dataset['Height'][:]
-    CAMS_Dust_MC   = CAMS_dataset['CAMS_Dust_MC'][:]   
+    # ######################
+    # ###       CAMS     ###
+    # ######################    
+    # 
+    # CAMS_file      = CAMS_path + '\\' + 'CAMS_' + ERA_substrings[0] + '_' + ERA_season + '.nc' 
+    # CAMS_dataset   = nc.Dataset(CAMS_file) 
+    # CAMS_latitude  = CAMS_dataset['Latitude'][:]
+    # CAMS_longitude = CAMS_dataset['Longitude'][:]      
+    # CAMS_Height    = CAMS_dataset['Height'][:]
+    # CAMS_Dust_MC   = CAMS_dataset['CAMS_Dust_MC'][:]   
 
     #######################
     ### LIVAS pure-dust ###
@@ -158,7 +220,7 @@ for ERA_file_count,ERA_filename in enumerate(ERA_filenames):
     Final_PD_a532nm[:]             = np.nan
     Final_PD_a532nm_SD[:]          = np.nan  
     Final_PD_MC[:]                 = np.nan
-   # Final_PD_MC_FM[:]              = np.nan # fine mode no
+  #  Final_PD_MC_FM[:]              = np.nan # fine mode no need
   #  Final_PD_MC_CM[:]              = np.nan
   #  Final_PD_MC_SD[:]              = np.nan
   #  Final_PD_MC_FM_SD[:]           = np.nan
@@ -559,8 +621,8 @@ for ERA_file_count,ERA_filename in enumerate(ERA_filenames):
     
     print("End of: " + fn)  
     print(datetime.now()) 
-            
-# How much time it took to execute the script in minutes:
-print(datetime.now() - startTime)  
-            
-            
+
+
+
+#  SCRIPT END  ---------------------------------------------------------------
+Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
