@@ -73,7 +73,7 @@ DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LonStep)
 # Process raw ERA5 files  ------------------------------------------------------------
 for filein in filenames:
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
-    
+
     ##  Limit data time range
     if not cnf.Range.start <= yyyy <= cnf.Range.until:
         continue
@@ -314,7 +314,6 @@ for filein in filenames:
 
         ds.close()
         print(f"Written: {fileout}")
-        sys.exit("wait")
 
     # # https://confluence.ecmwf.int/display/CKB/ERA5%3A+What+is+the+spatial+reference
     # # ERA longitude from 0->360 deg to -180->180 deg.
