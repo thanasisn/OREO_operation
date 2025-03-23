@@ -8,6 +8,7 @@ Establishes the required EO-and-ERA5 DOMOS dataset in the same L3 1x1 grid resol
 
 import os
 import sys
+import re
 
 import netCDF4  as nc
 import numpy    as np
@@ -23,7 +24,7 @@ import metpy.calc
 from   metpy.units import units
 from   pathlib import Path
 import numpy.ma as ma
-
+import xarray as xr
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -43,11 +44,11 @@ FORCE = True
 
 ## export my each moth
 MONTHLY  = False
-MONTHLY  = cnf.D1.Monthly
+# MONTHLY  = cnf.D1.Monthly
 
 ## export be season
 SEASONAL = False
-# SEASONAL = cnf.D1.Seasonal
+SEASONAL = cnf.D1.Seasonal
 
 
 ##  Allow only one case to run at the time  ----------------------------------
@@ -62,75 +63,78 @@ if not os.path.isdir(cnf.OREO.path_output):
     sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
 
 
-
 ##  Temporal aggregation setup  ----------------------------------------------
 if SEASONAL == True:
     print("Work on seasonal data")
     
-    filenames = glob.glob(
+    fERA_ilenames = glob.glob(
         f"{cnf.ERA5.path_regrid}/Seasonal_{cnf.D1.LatStep}x{cnf.D1.LonStep}/ERA5_*_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
     )
-
 elif MONTHLY == True:
     print("Work on monthly data")
 
-    filenames = glob.glob(
+    ERA_filenames = glob.glob(
         f"{cnf.ERA5.path_regrid}/Monthly_{cnf.D1.LatStep}x{cnf.D1.LonStep}/ERA5_*_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
     )
 
-
 filenames.sort()
 
+if cnf.ERA5.data == "mean":
+    U = "u_mean"
+    V = "v_mean"
+elif cnf.ERA5.data == "median":
+    U = "u_median"
+    V = "v_median"
 
-sys.exit("wait")
 
 
-
-
-# directory paths of input datasets
-ERA_path       = r"M:\DOMOS\datasets\2x5_seasonal\ERA5\processed"
-LIVAS_path     = r"M:\LIVAS\2022-01_grid"
+##  Directory paths of input datasets
+# ERA_path       = r"M:\DOMOS\datasets\2x5_seasonal\ERA5\processed"
+LIVAS_path     = cnf.LIVAS.path_lookup
 # CAMS_path      = r"M:\DOMOS\datasets\2x5_seasonal\CAMS\processed"
-# directory path of output datasets
-output_path    = r"M:\DOMOS\datasets\2x5_seasonal\Step_II"
+
+##  Directory path of output datasets
+output_path    = os.path.join(cnf.OREO.path_output,
+                              os.path.basename(os.path.dirname(filenames[0])))
+os.makedirs(output_path, exist_ok = True)
 
 
-# checking if input files exist in input dir.
-ERA_filenames = next(walk(ERA_path), (None, None, []))[2]  # [] if no file
+for ERA_file in filenames:
 
-
-for ERA_file_count,ERA_filename in enumerate(ERA_filenames):
-
-    ######################
-    ###       ERA5     ###
-    ###################### 
-
-    # ERA5 file opening and reading of ERA5 varibales.
-    ERA_file      = ERA_path + '\\' + ERA_filename
+    ##  Load ERA5 data  ------------------------------------------------------
     
-    # reading variables of interest.    
+    print(f"\nProcessing: {ERA_file}")
 
+    # reading variables of interest.    
+    ERA = xr.open_dataset(ERA_file)
     ERA_dataset   = nc.Dataset(ERA_file) 
     
-    ERA_Latitude  = ERA_dataset['Latitude'][:]
-    ERA_Longitude = ERA_dataset['Longitude'][:]      
-    ERA_Height    = ERA_dataset['Height'][:]
-    ERA_Latitude  = ERA_dataset['Latitude'][:]
-    ERA_Longitude = ERA_dataset['Longitude'][:]
-    ERA_U         = ERA_dataset['U'][:]
-    ERA_U_SD      = ERA_dataset['U_SD'][:]
-    ERA_V         = ERA_dataset['V'][:]
-    ERA_V_SD      = ERA_dataset['V_SD'][:]
+    ERA_Latitude  = ERA_dataset['latitude'][:]
+    ERA_Longitude = ERA_dataset['longitude'][:]      
+    ERA_Height    = ERA_dataset['height'][:]
+    ERA_Latitude  = ERA_dataset['latitude'][:]
+    ERA_Longitude = ERA_dataset['longitude'][:]
+    ERA_U         = ERA_dataset[ U ][:]
+    ERA_U_SD      = ERA_dataset['u_SD'][:]
+    ERA_V         = ERA_dataset[ V ][:]
+    ERA_V_SD      = ERA_dataset['u_SD'][:]
+    
+    
+    sys.exit("wait")
+    
+    os.path.basename(ERA_file)
+    
+    yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(ERA_file).group(1))
+    
     
     # extracting "yyyymm" sufix from ERA5 filename, for finding the satellite-based MM files.  
-    ERA_substrings    = ERA_file.split("\\")
-    ERA_substrings    = ERA_substrings[len(ERA_substrings)-1]
-    ERA_substrings    = ERA_substrings.split("-")
-    ERA_substrings    = ERA_substrings[0]
-    ERA_substrings    = ERA_substrings.split("_")
-    ERA_year          = int(ERA_substrings[0])
-    ERA_year_previous = int(ERA_substrings[0])-1
-    ERA_season        = ERA_substrings[1].split(".")[0]
+    ERA_year          = int(re.compile('ERA5_([0-9]*)_.*.nc').search(ERA_file).group(1))
+    ERA_year_previous = ERA_year - 1
+    seas = (re.compile('ERA5_[0-9]*_Q[1-4]_([A-Z]*)_.*.nc').search(ERA_file).group(1))
+
+    ERA_season        = seas
+    
+    
     if ERA_season == 'DJF':          
         YoI = [ERA_year_previous,ERA_year,ERA_year]
         MoI = [12,1,2]
