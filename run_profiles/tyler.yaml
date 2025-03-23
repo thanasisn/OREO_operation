@@ -29,11 +29,13 @@ ERA5:
 
 
 OREO:
-    path_output: "/home/athan/DATA/ERA5_oreo"
+    path_output: "/home/athan/DATA/OREO/"
 
 
 LIVAS:
     path_lookup: "/home/athan/DATA/OREO_tests_LIVAS_files"
+    levels:      399
+
 
 ##  Define domains  -------------------------------------------------
 

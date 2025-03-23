@@ -85,7 +85,7 @@ def output_needs_update(filein, fileout, quiet=False, minsize=5):
     return False
 
 
-def get_configs(file):
+def get_configs(file, quiet = False):
     """
     Read configuration profile file.
     This should provide all option to run the project.
@@ -105,5 +105,9 @@ def get_configs(file):
     print("\nOpening config file:", file, "\n")
     with open(file, 'r', encoding="utf-8") as file:
         configs = yaml.safe_load(file)
-        # Convert dictionary to use dot notation
-        return DotMap(configs)
+        
+    # Convert dictionary to use dot notation
+    CNF = DotMap(configs)
+    if not quiet:
+        print(CNF, "\n")
+    return CNF

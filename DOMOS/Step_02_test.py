@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-Created on Wed Jan  5 08:54:57 2022
 Establishes the required EO-and-ERA5 DOMOS dataset in the same L3 1x1 grid resolution and monthly-mean.
 
 @author: proestakis, thanasisn
@@ -38,15 +37,15 @@ cnf = Ou.get_configs(config_file)
 
 ##  Set switches  ------------------------------------------------------------
 
-## overwrite output files 
+##  Overwrite output files
 FORCE = cnf.mode.Force
 FORCE = True
 
-## export my each moth
+##  Export my each month
 MONTHLY  = False
 # MONTHLY  = cnf.D1.Monthly
 
-## export be season
+##  Export by season
 SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
@@ -56,18 +55,18 @@ if SEASONAL == MONTHLY:
     print("Seasonal:", SEASONAL)
     print("Monthly: ", MONTHLY)
     sys.exit("Choose only SEASONAL or only MONTHLY")
-    
+
 
 ##  Check destination folder exists  -----------------------------------------
 if not os.path.isdir(cnf.OREO.path_output):
-    sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
+    sys.exit(f"\nFolder {cnf.OREO.path_output} don't exist !!\n")
 
 
 ##  Temporal aggregation setup  ----------------------------------------------
 if SEASONAL == True:
     print("Work on seasonal data")
-    
-    fERA_ilenames = glob.glob(
+
+    ERA_filenames = glob.glob(
         f"{cnf.ERA5.path_regrid}/Seasonal_{cnf.D1.LatStep}x{cnf.D1.LonStep}/ERA5_*_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
     )
 elif MONTHLY == True:
@@ -77,8 +76,9 @@ elif MONTHLY == True:
         f"{cnf.ERA5.path_regrid}/Monthly_{cnf.D1.LatStep}x{cnf.D1.LonStep}/ERA5_*_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
     )
 
-filenames.sort()
+ERA_filenames.sort()
 
+##  Select ERA5 variables by method
 if cnf.ERA5.data == "mean":
     U = "u_mean"
     V = "v_mean"
@@ -88,70 +88,57 @@ elif cnf.ERA5.data == "median":
 
 
 
-##  Directory paths of input datasets
-# ERA_path       = r"M:\DOMOS\datasets\2x5_seasonal\ERA5\processed"
-LIVAS_path     = cnf.LIVAS.path_lookup
-# CAMS_path      = r"M:\DOMOS\datasets\2x5_seasonal\CAMS\processed"
-
 ##  Directory path of output datasets
 output_path    = os.path.join(cnf.OREO.path_output,
-                              os.path.basename(os.path.dirname(filenames[0])))
+                              os.path.basename(os.path.dirname(ERA_filenames[0])))
 os.makedirs(output_path, exist_ok = True)
 
 
-for ERA_file in filenames:
+for ERA_file in ERA_filenames:
 
     ##  Load ERA5 data  ------------------------------------------------------
-    
+
     print(f"\nProcessing: {ERA_file}")
 
-    # reading variables of interest.    
+    # reading variables of interest
     ERA = xr.open_dataset(ERA_file)
-    ERA_dataset   = nc.Dataset(ERA_file) 
-    
+    ERA_dataset   = nc.Dataset(ERA_file)
+
     ERA_Latitude  = ERA_dataset['latitude'][:]
-    ERA_Longitude = ERA_dataset['longitude'][:]      
+    ERA_Longitude = ERA_dataset['longitude'][:]
     ERA_Height    = ERA_dataset['height'][:]
     ERA_Latitude  = ERA_dataset['latitude'][:]
     ERA_Longitude = ERA_dataset['longitude'][:]
     ERA_U         = ERA_dataset[ U ][:]
     ERA_U_SD      = ERA_dataset['u_SD'][:]
-    ERA_V         = ERA_dataset[ V ][:]
+    ERA_V         = ERA_dataset[ V ][:]    ## was u !!
     ERA_V_SD      = ERA_dataset['u_SD'][:]
-    
-    
-    sys.exit("wait")
-    
-    os.path.basename(ERA_file)
-    
-    yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(ERA_file).group(1))
-    
-    
-    # extracting "yyyymm" sufix from ERA5 filename, for finding the satellite-based MM files.  
+
+    # extracting "yyyymm" suffix from ERA5 filename, for finding the satellite-based MM files.  
     ERA_year          = int(re.compile('ERA5_([0-9]*)_.*.nc').search(ERA_file).group(1))
     ERA_year_previous = ERA_year - 1
-    seas = (re.compile('ERA5_[0-9]*_Q[1-4]_([A-Z]*)_.*.nc').search(ERA_file).group(1))
-
-    ERA_season        = seas
+    ERA_season        = re.compile('ERA5_[0-9]*_Q[1-4]_([A-Z]*)_.*.nc').search(ERA_file).group(1)
     
-    
-    if ERA_season == 'DJF':          
-        YoI = [ERA_year_previous,ERA_year,ERA_year]
-        MoI = [12,1,2]
-    if ERA_season == 'MAM':    
-        YoI = [ERA_year,ERA_year,ERA_year]
-        MoI = [3,4,5]        
-    if ERA_season == 'JJA':    
-        YoI = [ERA_year,ERA_year,ERA_year]
-        MoI = [6,7,8]        
-    if ERA_season == 'SON':    
-        YoI = [ERA_year,ERA_year,ERA_year]
-        MoI = [9,10,11]        
+    if ERA_season == 'DJF':
+        YoI = [ERA_year_previous, ERA_year, ERA_year]
+        MoI = [12, 1, 2]
+    if ERA_season == 'MAM':
+        YoI = [ERA_year, ERA_year, ERA_year]
+        MoI = [3, 4, 5]
+    if ERA_season == 'JJA':
+        YoI = [ERA_year, ERA_year, ERA_year]
+        MoI = [6, 7, 8]
+    if ERA_season == 'SON':
+        YoI = [ERA_year, ERA_year, ERA_year]
+        MoI = [9, 10, 11]
 
-    fn = output_path + '\\' + 'DOMOS_Datasets_' + ERA_substrings[0] + '_' + ERA_season + '.nc' 
-    if exists(fn):
+
+    fileout = os.path.join(output_path,
+                           os.path.basename(ERA_file).replace("ERA5", "DOMOS"))
+    ## skip already existing files
+    if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
         continue
-
+    
     # ######################
     # ###       CAMS     ###
     # ######################    
@@ -167,24 +154,24 @@ for ERA_file in filenames:
     ### LIVAS pure-dust ###
     #######################    
 
-    Percentage_IGBP_1          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_2          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_3          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_4          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_5          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_6          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_7          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_8          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_9          = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_10         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_11         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_12         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_13         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_14         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_15         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_16         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_17         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
-    Percentage_IGBP_18         = np.empty((len(ERA_Longitude),len(ERA_Latitude)))
+    Percentage_IGBP_1          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_2          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_3          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_4          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_5          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_6          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_7          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_8          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_9          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_10         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_11         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_12         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_13         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_14         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_15         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_16         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_17         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Percentage_IGBP_18         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
     Percentage_IGBP_1[:]       = np.nan
     Percentage_IGBP_2[:]       = np.nan
     Percentage_IGBP_3[:]       = np.nan
@@ -203,19 +190,19 @@ for ERA_file in filenames:
     Percentage_IGBP_16[:]      = np.nan
     Percentage_IGBP_17[:]      = np.nan
     Percentage_IGBP_18[:]      = np.nan
-       
-    Final_Number_of_Profiles      = np.empty(( len(ERA_Longitude), len(ERA_Latitude)))
-    Final_Number_of_L2Profiles    = np.empty(( len(ERA_Longitude), len(ERA_Latitude)))  
-    Final_LIVAS_PD_DOD_532nm      = np.empty(( len(ERA_Longitude), len(ERA_Latitude)))
-    Final_LIVAS_PD_DOD_532nm_SD   = np.empty(( len(ERA_Longitude), len(ERA_Latitude)))      
-    Final_PD_a532nm   = np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))
-    Final_PD_a532nm_SD= np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))
-    Final_PD_MC       = np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))
-    Final_PD_MC_FM    = np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))
-    Final_PD_MC_CM    = np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))
-    Final_PD_MC_SD    = np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))
-    Final_PD_MC_FM_SD = np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))
-    Final_PD_MC_CM_SD = np.empty(( len(ERA_Longitude), len(ERA_Latitude), 399))  
+
+    Final_Number_of_Profiles    = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Final_Number_of_L2Profiles  = np.empty((len(ERA_Longitude), len(ERA_Latitude)))  
+    Final_LIVAS_PD_DOD_532nm    = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
+    Final_LIVAS_PD_DOD_532nm_SD = np.empty((len(ERA_Longitude), len(ERA_Latitude)))      
+    Final_PD_a532nm             = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    Final_PD_a532nm_SD          = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    Final_PD_MC                 = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    Final_PD_MC_FM              = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    Final_PD_MC_CM              = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    Final_PD_MC_SD              = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    Final_PD_MC_FM_SD           = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    Final_PD_MC_CM_SD           = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))  
 
     Final_Number_of_Profiles[:]    = np.nan
     Final_Number_of_L2Profiles[:]  = np.nan
@@ -225,19 +212,40 @@ for ERA_file in filenames:
     Final_PD_a532nm_SD[:]          = np.nan  
     Final_PD_MC[:]                 = np.nan
   #  Final_PD_MC_FM[:]              = np.nan # fine mode no need
-  #  Final_PD_MC_CM[:]              = np.nan
-  #  Final_PD_MC_SD[:]              = np.nan
+    Final_PD_MC_CM[:]              = np.nan
+    Final_PD_MC_SD[:]              = np.nan
   #  Final_PD_MC_FM_SD[:]           = np.nan
-  #  Final_PD_MC_CM_SD[:]           = np.nan
+    Final_PD_MC_CM_SD[:]           = np.nan
    
-    Empty_Vertical_array    = np.empty(399)
+    Empty_Vertical_array    = np.empty(cnf.LIVAS.levels)
     Empty_Vertical_array[:] = np.nan  
 
-    for count_lon,lon in enumerate(ERA_Longitude):        
-        for count_lat,lat in enumerate(ERA_Latitude):
+
+    for count_lon, lon in enumerate(ERA_Longitude):        
+        for count_lat, lat in enumerate(ERA_Latitude):
  
-            LIVAS_lons = [lon-2,lon-1,lon,lon+1,lon+2,lon-2,lon-1,lon,lon+1,lon+2]
-            LIVAS_lats = [lat-0.5,lat+0.5,lat-0.5,lat+0.5,lat-0.5,lat+0.5,lat-0.5,lat+0.5,lat-0.5,lat+0.5]
+            ## TODO why?
+            LIVAS_lons = [lon - 2, 
+                          lon - 1,
+                          lon, 
+                          lon + 1, 
+                          lon + 2, 
+                          lon - 2, 
+                          lon - 1, 
+                          lon, 
+                          lon + 1, 
+                          lon + 2]
+                          
+            LIVAS_lats = [lat - 0.5, 
+                          lat + 0.5,
+                          lat - 0.5,
+                          lat + 0.5,
+                          lat - 0.5,
+                          lat + 0.5,
+                          lat - 0.5,
+                          lat + 0.5,
+                          lat - 0.5,
+                          lat + 0.5]
             
             file_counter = 0
             
@@ -248,15 +256,25 @@ for ERA_file in filenames:
             ###     LIVAS      ###
             ###################### 
             
-            for LIVAS_lons_lats_idx,LIVAS_lons_lats in enumerate(LIVAS_lons):
+            ## TODO why lats lon
+            for LIVAS_lons_lats_idx, LIVAS_lons_lats in enumerate(LIVAS_lons):
            
                 LIVAS_filename  = 'LIVAS_CALIPSO_L2_Grid_lon_c_' + str(LIVAS_lons[LIVAS_lons_lats_idx]) + '_lat_c_' + str(LIVAS_lats[LIVAS_lons_lats_idx]) + '.nc'
-                LIVAS_file      = LIVAS_path + '\\' + LIVAS_filename
+                LIVAS_file      = os.path.join(cnf.LIVAS.path_lookup, LIVAS_filename)
+ 
                 file_existing   = exists(LIVAS_file)
                 
-                if (not file_existing) | (LIVAS_filename == 'LIVAS_CALIPSO_L2_Grid_lon_c_-106.5_lat_c_-55.5.nc') | (LIVAS_filename == 'LIVAS_CALIPSO_L2_Grid_lon_c_-106.5_lat_c_-48.5.nc') :
+                
+                if (not file_existing) | \
+                   (LIVAS_filename == 'LIVAS_CALIPSO_L2_Grid_lon_c_-106.5_lat_c_-55.5.nc') | \
+                   (LIVAS_filename == 'LIVAS_CALIPSO_L2_Grid_lon_c_-106.5_lat_c_-48.5.nc') :
+                    
+                    print(f"Missing file: {os.path.basename(LIVAS_filename)}")
                     continue
+                
                 else:  
+                    
+                    sys.exit("wait")
                     
                     LIVAS_dataset       = nc.Dataset(LIVAS_file)
                     Profile_Time_Parsed = LIVAS_dataset['/Profile_Time_Parsed'][:]
@@ -264,12 +282,15 @@ for ERA_file in filenames:
                     Years     = np.empty((len(Profile_Time_Parsed)))
                     Months[:] = np.nan
                     Years[:]  = np.nan
+                    
                     for count_time,time in enumerate(Profile_Time_Parsed):
                         time = time.split(' ')[0]
                         Months[count_time] = int(time.split('/')[1])
                         Years[count_time]  = int(time.split('/')[0])
+                    
                     idx = np.where( (MoI[0] == Months) & (YoI[0] == Years) | (MoI[1] == Months) & (YoI[1] == Years) | (MoI[2] == Months) & (YoI[2] == Years) )
                     idx = np.ravel(idx)
+                    
                     if (len(idx) == 0) | (len(idx) == 1):
                         continue
                     Month = Months[idx]
@@ -312,7 +333,7 @@ for ERA_file in filenames:
                         file_counter = file_counter + 1
 
 
-                        ## to continut
+                        ## to continue
                         
             Number_of_Profiles = np.shape(Total_LIVAS_PD_MC)[0]
             temp = np.copy(Total_LIVAS_PD_MC)
@@ -321,7 +342,7 @@ for ERA_file in filenames:
             idx  = np.isnan(Total_LIVAS_PD_MC)
             temp[idx] = 1                        
             temp = np.ravel([np.nansum(temp[i,:]) for i in range(np.shape(temp)[0]) ])
-            L2_CF_profiles  = len(temp) - len(np.ravel(np.where(temp == 399)))
+            L2_CF_profiles  = len(temp) - len(np.ravel(np.where(temp == cnf.LIVAS.levels)))
             
             PD_a532nm    = np.nanmean(Total_LIVAS_PD_a532nm,axis = 0)
             PD_MC        = np.nanmean(Total_LIVAS_PD_MC,    axis = 0)
@@ -337,8 +358,8 @@ for ERA_file in filenames:
             PD_MC_FM[Altitude > 10]     = np.nan
             PD_MC_CM[Altitude > 10]     = np.nan          
             PD_MC_SD[Altitude > 10]     = np.nan
-            PD_MC_FM_SD[Altitude > 10]  = np.nan
-            PD_MC_CM_SD[Altitude > 10]  = np.nan            
+            PD_MC_FM_SD[Altitude  > 10]  = np.nan
+            PD_MC_CM_SD[Altitude  > 10]  = np.nan            
             PD_a532nm_SD[Altitude > 10] = np.nan
 
             arr = np.copy(PD_a532nm)
@@ -348,7 +369,7 @@ for ERA_file in filenames:
             arr[np.isnan(arr)] = 0                            
             DOD_532nm_SD    = np.trapz(Altitude,arr) 
             
-            for count_alt in range(399):   
+            for count_alt in range(cnf.LIVAS.levels):   
                 Final_PD_MC[idx_lon,idx_lat,count_alt]       = PD_MC[count_alt]
                 Final_PD_MC_FM[idx_lon,idx_lat,count_alt]    = PD_MC_FM[count_alt]
                 Final_PD_MC_CM[idx_lon,idx_lat,count_alt]    = PD_MC_CM[count_alt]
@@ -391,8 +412,7 @@ for ERA_file in filenames:
     Altitude = Altitude*1000.0
     
     # creating nc. filename and initiallizing:                 
-    fn           = output_path + '\\' + 'DOMOS_Datasets_' + ERA_substrings[0] + '_' + ERA_season + '.nc' 
-    ds           = nc.Dataset(fn, 'w', format='NETCDF4')
+    ds           = nc.Dataset(fileout, 'w', format='NETCDF4')
 
     # create nc. dimensions:
     longitude    = ERA_Longitude
@@ -622,10 +642,7 @@ for ERA_file in filenames:
     Percentage_IGBP_18_id[:]     = Percentage_IGBP_18
   
     ds.close()               
-    
-    print("End of: " + fn)  
-    print(datetime.now()) 
-
+    print(f"Written: {fileout}")
 
 
 #  SCRIPT END  ---------------------------------------------------------------
