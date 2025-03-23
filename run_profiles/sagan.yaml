@@ -16,6 +16,7 @@ LOGs:
     path: "/home/athan/OREO/operation/LOGs"
     run:  "/home/athan/OREO/operation/LOGs/Run.log"
 
+
 ##  ERA5 data  ------------------------------------------------------
 ERA5:
     ## EPSG code
@@ -24,9 +25,15 @@ ERA5:
     path_raw:    "/home/athan/DATA/ERA5_domos_raw"
     ## output of regrided
     path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
+    data:        "mean" # "mean", "median"
+
 
 OREO:
     path_output: "/home/athan/DATA/ERA5_oreo"
+
+
+LIVAS:
+    path_lookup: "/home/athan/DATA/OREO_tests_LIVAS_files"
 
 
 ##  Define domains  -------------------------------------------------
