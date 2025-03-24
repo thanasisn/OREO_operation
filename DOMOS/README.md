@@ -1,8 +1,8 @@
 
 # OREO
 
-1. Get input domain from ERA5 [](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview)
-2. - Regrid domain
-   - Geopotential to height
+0. Download ERA5 domain
+1. - Regrid ERA5 to coarser domain
+   - Convert geopotential to height
 
 

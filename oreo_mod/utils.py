@@ -10,6 +10,7 @@ import sys
 from datetime import datetime
 from dotmap   import DotMap
 import yaml
+import requests
 
 def goodbye(logfile, tic, scriptname, quiet=False):
     """
@@ -19,6 +20,13 @@ def goodbye(logfile, tic, scriptname, quiet=False):
     out += os.getlogin() + "@" + os.uname()[1] + " "
     out += os.path.normpath(scriptname)        + " "
     out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins"
+
+    ## post telemetry to telegram
+    TOKEN = "7814434886:AAFQXk24RajNIwCNIT37DI38MSMqtKd0Cgw"
+    cid   = "6849911952"
+    url   = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={cid}&text={out}"
+    requests.get(url).json()
+
     if not quiet:
         print('\n' + out + '\n')
     with open(logfile, "a", encoding="utf-8") as runlog:
@@ -105,7 +113,7 @@ def get_configs(file, quiet = False):
     print("\nOpening config file:", file, "\n")
     with open(file, 'r', encoding="utf-8") as file:
         configs = yaml.safe_load(file)
-        
+
     # Convert dictionary to use dot notation
     CNF = DotMap(configs)
     if not quiet:

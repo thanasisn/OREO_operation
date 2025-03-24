@@ -6,7 +6,7 @@
 
 ##  Some running modes switches  ------------------------------------
 mode:
-    Force: yes
+    Force: no
     Quiet: no
     Test:  yes
 
