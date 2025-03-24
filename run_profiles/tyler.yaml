@@ -44,14 +44,16 @@ D0: "global"
 
 ##  Used to download ERA5 and regrid
 D1:
-    name: "Input domain"
+    name:    "Input domain"
     Monthly:  yes
     Seasonal: yes
     ## Latitude range test
+    ## The boundaries are expected to be multiples of the step!!
     North:     42
-    South:     25
+    South:     22
     LatStep:    2
     ## Longitude range test
+    ## The boundaries are expected to be multiples of the step!!
     West:     -80
     East:      25
     LonStep:    5
@@ -69,3 +71,4 @@ D1:
 Range:
     start: 2020
     until: 2020
+
