@@ -36,6 +36,8 @@ source $HOME/PROGRAMS/miniconda3/bin/activate && \
   { echo "Failed to activate environment"; exit 1; }
 
 
+export PYTHONUNBUFFERED=1
+
 info "Get raw data from ERA5"
 ./Step_00_get_ERA5_data.py
 

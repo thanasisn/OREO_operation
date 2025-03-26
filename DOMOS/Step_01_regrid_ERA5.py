@@ -40,8 +40,9 @@ cnf = Ou.get_configs(config_file)
 
 ##  Set switches  ------------------------------------------------------------
 
-## overwrite output files 
+## overwrite output files
 FORCE = cnf.mode.Force
+FORCE = True
 
 ## export my each moth
 MONTHLY  = False
@@ -49,7 +50,7 @@ MONTHLY  = cnf.D1.Monthly
 
 ## export be season
 SEASONAL = False
-SEASONAL = cnf.D1.Seasonal
+# SEASONAL = cnf.D1.Seasonal
 
 
 ##  Check destination folder exists  ------------------------------------------
@@ -84,7 +85,42 @@ lon_array       = np.arange(cnf.D1.West,  cnf.D1.East)
 DOMOS_lat_array = np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LatStep)
 DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LonStep)
 
-##  Process raw ERA5 files  ----------------------------------------------------
+
+def Get_Boundaries_of_ERA5_UVW_wind_components(Longitude, Latitude, Height):
+
+    Height_Boundaries    = np.array(np.empty((Height.shape[0], Height.shape[1], Height.shape[2]+1)))
+    Height_Boundaries[:] = np.nan
+    for count_lon,lon in enumerate(Longitude):
+        for count_lat,lat in enumerate(Latitude):
+            H       = Height[count_lon,count_lat,:].data
+            temp    = np.array(np.empty((H.shape[0]+1)))
+            temp[:] = np.nan
+            if H[H.shape[0]-1] > 0:
+                for count_alt,alt in enumerate(temp):
+                    if count_alt == 0:
+                        Height_Boundaries[count_lon,count_lat,0] = H[0] + 1000.0
+                    if count_alt == temp.shape[0]-1:
+                        Height_Boundaries[count_lon,count_lat,count_alt] = 0.0
+                    if ((count_alt > 0) & (count_alt < temp.shape[0]-1)):
+                        Height_Boundaries[count_lon,count_lat,count_alt] = (H[count_alt-1] + H[count_alt])/2
+            else:
+                for count_alt,alt in enumerate(temp):
+                    if count_alt == 0:
+                        Height_Boundaries[count_lon,count_lat,0] = H[0] + 1000.0
+                    if count_alt == temp.shape[0]-1:
+                        Height_Boundaries[count_lon,count_lat,count_alt] = -100.0
+                    if count_alt == temp.shape[0]-2:
+                        Height_Boundaries[count_lon,count_lat,count_alt] =    0.0
+                    if ((count_alt > 0) & (count_alt < temp.shape[0]-2)):
+                        Height_Boundaries[count_lon, count_lat, count_alt] = (H[count_alt-1] + H[count_alt])/2
+
+    return(Height_Boundaries)
+
+
+
+
+
+##  Process raw ERA5 files  --------------------------------------------------
 for filein in filenames:
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
 
@@ -153,7 +189,7 @@ for filein in filenames:
                 # File of previous year to read December for DJF season
                 previous_file = list(filter(lambda x:'ERA5_' + str(yyyy - 1) in x, filenames))
                 if (len(previous_file)!=1):
-                    print("SKIP season! No file for the {yyyy - 1} found\n")
+                    print(f"SKIP season! No file for the {yyyy - 1} found\n")
                     continue
 
                 ## load ERA5 main file on a xarray
@@ -185,19 +221,23 @@ for filein in filenames:
                 sesdate = datetime(yyyy, 10, 15)
 
             ##  Add geometric height  --------------------------------------------
-            DTses = DTses.assign(
-                height = xr.DataArray(
-                    metpy.calc.geopotential_to_height(
-                         units.Quantity(DTses.z.values, DTses.z.units)
-                    ),
-                    coords = DTses.coords,
-                )
-            )
-            DTses['height'].attrs = {
-                'long_name':     'Geometric height',
-                'units':         'm',
-                'standard_name': 'height'
-            }
+            # DTses = DTses.assign(
+            #     height = xr.DataArray(
+            #         metpy.calc.geopotential_to_height(
+            #              units.Quantity(DTses.z.values, DTses.z.units)
+            #         ),
+            #         coords = DTses.coords,
+            #     )
+            # )
+            # DTses['height'].attrs = {
+            #     'long_name':     'Geometric height',
+            #     'units':         'm',
+            #     'standard_name': 'height'
+            # }
+
+            DTses = Oc.z_to_height(DTses)
+            if DTses.height.min() < 0 :
+                sys.exit("\nNegative height found!! Have to resolve this!!\n")
 
 
             # ##  Calculations with xarray  ------------------------------------
@@ -284,6 +324,9 @@ for filein in filenames:
             V_SD         = ds.createVariable('v_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
             V_N          = ds.createVariable('v_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
 
+            temp_h = height[:,0,0]
+
+
             ##  Set units attributes
             lats.units     = 'degrees_north'
             lons.units     = 'degrees_east'
@@ -342,7 +385,7 @@ for filein in filenames:
     if MONTHLY:
 
         ##  Compute by month of the year
-        for m in range(1, 12):
+        for m in range(1, 13):
             print(f"  {yyyy} M {m:02}")
 
             fileout = os.path.join(
@@ -354,26 +397,108 @@ for filein in filenames:
             if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
                 continue
 
-            ## select data explicitly 
+            ## geopotential changes with time
+            DT.isel(valid_time = 0, latitude = 0, longitude = 0).z.values
+            DT.isel(valid_time = 1, latitude = 0, longitude = 0).z.values
+
+
+            ## select data explicitly
             ## the date format for the ERA5 is already by month
             DTses   = DT.sel(valid_time = slice(f"{yyyy}-{m:02}-01"))
             sesdate = datetime(yyyy, m, 1)
 
-            ##  Add geometric height  ----------------------------------------
-            DTses = DTses.assign(
-                height = xr.DataArray(
-                    metpy.calc.geopotential_to_height(
-                         units.Quantity(DTses.z.values, DTses.z.units)
-                    ),
-                    coords = DTses.coords,
-                )
-            )
-            DTses['height'].attrs = {
-                'long_name':     'Geometric height',
-                'units':         'm',
-                'standard_name': 'height'
-            }
 
+            ##  Add geometric height  ----------------------------------------
+            # DTses = DTses.assign(
+            #     height = xr.DataArray(
+            #         metpy.calc.geopotential_to_height(
+            #              units.Quantity(DTses.z.values, DTses.z.units)
+            #         ),
+            #         coords = DTses.coords,
+            #     )
+            # )
+            # DTses['height'].attrs = {
+            #     'long_name':     'Geometric height',
+            #     'units':         'm',
+            #     'standard_name': 'height'
+            # }
+
+            DTses = Oc.z_to_height(DTses)
+            if DTses.height.min() < 0 :
+                sys.exit("\nNegative height found!! Have to resolve this!!\n")
+
+
+            ## ignoring time
+            Height_Boundaries = np.empty((DTses.height.longitude.shape[0],
+                                          DTses.height.latitude.shape[0],
+                                          DTses.height.pressure_level.shape[0] + 1))
+            Height_Boundaries.fill(np.nan)
+
+            # Height_Boundaries    = np.array(np.empty((Height.shape[0], Height.shape[1], Height.shape[2]+1)))
+            # Height_Boundaries[:] = np.nan
+            for count_lon, lon in enumerate(DTses.height.longitude):
+                for count_lat, lat in enumerate(DTses.height.latitude):
+                    # H       = DTses.height[count_lon, count_lat, :].data
+                    # temp    = np.array(np.empty((H.shape[0]+1)))
+                    # temp[:] = np.nan
+
+                    H    = DTses.height.isel(valid_time = 0).sel(latitude = lat, longitude = lon).values
+                    temp = np.full(H.shape[0] + 1, np.nan)
+
+                    if H[H.shape[0]-1] > 0:
+                        print("first")
+                        for count_alt, alt in enumerate(temp):
+                            if count_alt == 0:
+                                Height_Boundaries[count_lon, count_lat, 0] = H[0] + 1000.0
+                            if count_alt == temp.shape[0]-1:
+                                Height_Boundaries[count_lon, count_lat, count_alt] = 0.0
+                            if ((count_alt > 0) & (count_alt < temp.shape[0]-1)):
+                                Height_Boundaries[count_lon,count_lat, count_alt] = (H[count_alt-1] + H[count_alt])/2
+                    else:
+                        print("second")
+                        for count_alt, alt in enumerate(temp):
+                            if count_alt == 0:
+                                Height_Boundaries[count_lon, count_lat, 0] = H[0] + 1000.0
+                            if count_alt == temp.shape[0]-1:
+                                Height_Boundaries[count_lon,count_lat,count_alt] = -100.0
+                            if count_alt == temp.shape[0]-2:
+                                Height_Boundaries[count_lon,count_lat,count_alt] =    0.0
+                            if ((count_alt > 0) & (count_alt < temp.shape[0]-2)):
+                                Height_Boundaries[count_lon, count_lat, count_alt] = (H[count_alt-1] + H[count_alt])/2
+
+                    print(Height_Boundaries[count_lon, count_lat, :])
+
+                    H[H.max() == H][0]
+                    HB = np.full(H.shape[0] + 1, np.nan)
+                    HB[0] = 0.0
+                    HB[H.shape[0]] = H[H.max() == H][0] + 1000.
+
+                    ## assume the same sort
+                    if (np.diff(H) > 0).all():
+                        print("Ascending heights")
+                    else:
+                        sys.stop("Descending heights")
+
+                    if not H[H.min() == H].item() > cnf.ERA5.height_at_bottom:
+                        sys.stop("Starting point is not lower than cell centre")
+
+                    HB = H + np.diff(np.concat((H, H[H.max() == H] + cnf.ERA5.extra_height_on_top)))/2
+                    HB = np.concat(([cnf.ERA5.height_at_bottom], HB))
+
+                    # len(H)
+                    # for ih, h in enumerate(H):
+                    #     print(ih, h)
+                    # H[1:] + np.diff(H)/2
+
+                    # np.diff(H)/2
+                    # np.diff(H, append = H[H.max() == H].item())/2
+                    # H[H.max() == H].item()
+
+                    for i,j in enumerate(H):
+                        print(H[i], HB[i], HB[i+1])
+
+
+                    sys.exit("HH")
 
             ##  Iterative calculations  --------------------------------------
 
@@ -412,6 +537,9 @@ for filein in filenames:
                         v_total_SD    [klev, ilon, jlat] = np.std(                    cell.v.values)
                         v_total_N     [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.v.values))
                         height_mean   [klev, ilon, jlat] = np.mean(                   cell.height.values)
+
+
+
 
             ##  numpy array export  ------------------------------------------
             ds           = nc.Dataset(fileout, 'w', format='NETCDF4')

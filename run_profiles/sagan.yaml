@@ -26,6 +26,10 @@ ERA5:
     ## output of regrided
     path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
     data:        "mean" # "mean", "median"
+    ## extend upper height with some meters to create top cell
+    extra_height_on_top: 1000
+    ## extend lower lever to this height to start the first cell
+    height_at_bottom:       0
 
 
 OREO:
