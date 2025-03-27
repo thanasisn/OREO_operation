@@ -86,39 +86,6 @@ DOMOS_lat_array = np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LatStep)
 DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LonStep)
 
 
-def Get_Boundaries_of_ERA5_UVW_wind_components(Longitude, Latitude, Height):
-
-    Height_Boundaries    = np.array(np.empty((Height.shape[0], Height.shape[1], Height.shape[2]+1)))
-    Height_Boundaries[:] = np.nan
-    for count_lon,lon in enumerate(Longitude):
-        for count_lat,lat in enumerate(Latitude):
-            H       = Height[count_lon,count_lat,:].data
-            temp    = np.array(np.empty((H.shape[0]+1)))
-            temp[:] = np.nan
-            if H[H.shape[0]-1] > 0:
-                for count_alt,alt in enumerate(temp):
-                    if count_alt == 0:
-                        Height_Boundaries[count_lon,count_lat,0] = H[0] + 1000.0
-                    if count_alt == temp.shape[0]-1:
-                        Height_Boundaries[count_lon,count_lat,count_alt] = 0.0
-                    if ((count_alt > 0) & (count_alt < temp.shape[0]-1)):
-                        Height_Boundaries[count_lon,count_lat,count_alt] = (H[count_alt-1] + H[count_alt])/2
-            else:
-                for count_alt,alt in enumerate(temp):
-                    if count_alt == 0:
-                        Height_Boundaries[count_lon,count_lat,0] = H[0] + 1000.0
-                    if count_alt == temp.shape[0]-1:
-                        Height_Boundaries[count_lon,count_lat,count_alt] = -100.0
-                    if count_alt == temp.shape[0]-2:
-                        Height_Boundaries[count_lon,count_lat,count_alt] =    0.0
-                    if ((count_alt > 0) & (count_alt < temp.shape[0]-2)):
-                        Height_Boundaries[count_lon, count_lat, count_alt] = (H[count_alt-1] + H[count_alt])/2
-
-    return(Height_Boundaries)
-
-
-
-
 
 ##  Process raw ERA5 files  --------------------------------------------------
 for filein in filenames:
@@ -324,8 +291,6 @@ for filein in filenames:
             V_SD         = ds.createVariable('v_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
             V_N          = ds.createVariable('v_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
 
-            temp_h = height[:,0,0]
-
 
             ##  Set units attributes
             lats.units     = 'degrees_north'
@@ -401,104 +366,13 @@ for filein in filenames:
             DT.isel(valid_time = 0, latitude = 0, longitude = 0).z.values
             DT.isel(valid_time = 1, latitude = 0, longitude = 0).z.values
 
-
             ## select data explicitly
             ## the date format for the ERA5 is already by month
             DTses   = DT.sel(valid_time = slice(f"{yyyy}-{m:02}-01"))
             sesdate = datetime(yyyy, m, 1)
 
-
             ##  Add geometric height  ----------------------------------------
-            # DTses = DTses.assign(
-            #     height = xr.DataArray(
-            #         metpy.calc.geopotential_to_height(
-            #              units.Quantity(DTses.z.values, DTses.z.units)
-            #         ),
-            #         coords = DTses.coords,
-            #     )
-            # )
-            # DTses['height'].attrs = {
-            #     'long_name':     'Geometric height',
-            #     'units':         'm',
-            #     'standard_name': 'height'
-            # }
-
             DTses = Oc.z_to_height(DTses)
-            if DTses.height.min() < 0 :
-                sys.exit("\nNegative height found!! Have to resolve this!!\n")
-
-
-            ## ignoring time
-            Height_Boundaries = np.empty((DTses.height.longitude.shape[0],
-                                          DTses.height.latitude.shape[0],
-                                          DTses.height.pressure_level.shape[0] + 1))
-            Height_Boundaries.fill(np.nan)
-
-            # Height_Boundaries    = np.array(np.empty((Height.shape[0], Height.shape[1], Height.shape[2]+1)))
-            # Height_Boundaries[:] = np.nan
-            for count_lon, lon in enumerate(DTses.height.longitude):
-                for count_lat, lat in enumerate(DTses.height.latitude):
-                    # H       = DTses.height[count_lon, count_lat, :].data
-                    # temp    = np.array(np.empty((H.shape[0]+1)))
-                    # temp[:] = np.nan
-
-                    H    = DTses.height.isel(valid_time = 0).sel(latitude = lat, longitude = lon).values
-                    temp = np.full(H.shape[0] + 1, np.nan)
-
-                    if H[H.shape[0]-1] > 0:
-                        print("first")
-                        for count_alt, alt in enumerate(temp):
-                            if count_alt == 0:
-                                Height_Boundaries[count_lon, count_lat, 0] = H[0] + 1000.0
-                            if count_alt == temp.shape[0]-1:
-                                Height_Boundaries[count_lon, count_lat, count_alt] = 0.0
-                            if ((count_alt > 0) & (count_alt < temp.shape[0]-1)):
-                                Height_Boundaries[count_lon,count_lat, count_alt] = (H[count_alt-1] + H[count_alt])/2
-                    else:
-                        print("second")
-                        for count_alt, alt in enumerate(temp):
-                            if count_alt == 0:
-                                Height_Boundaries[count_lon, count_lat, 0] = H[0] + 1000.0
-                            if count_alt == temp.shape[0]-1:
-                                Height_Boundaries[count_lon,count_lat,count_alt] = -100.0
-                            if count_alt == temp.shape[0]-2:
-                                Height_Boundaries[count_lon,count_lat,count_alt] =    0.0
-                            if ((count_alt > 0) & (count_alt < temp.shape[0]-2)):
-                                Height_Boundaries[count_lon, count_lat, count_alt] = (H[count_alt-1] + H[count_alt])/2
-
-                    print(Height_Boundaries[count_lon, count_lat, :])
-
-                    H[H.max() == H][0]
-                    HB = np.full(H.shape[0] + 1, np.nan)
-                    HB[0] = 0.0
-                    HB[H.shape[0]] = H[H.max() == H][0] + 1000.
-
-                    ## assume the same sort
-                    if (np.diff(H) > 0).all():
-                        print("Ascending heights")
-                    else:
-                        sys.stop("Descending heights")
-
-                    if not H[H.min() == H].item() > cnf.ERA5.height_at_bottom:
-                        sys.stop("Starting point is not lower than cell centre")
-
-                    HB = H + np.diff(np.concat((H, H[H.max() == H] + cnf.ERA5.extra_height_on_top)))/2
-                    HB = np.concat(([cnf.ERA5.height_at_bottom], HB))
-
-                    # len(H)
-                    # for ih, h in enumerate(H):
-                    #     print(ih, h)
-                    # H[1:] + np.diff(H)/2
-
-                    # np.diff(H)/2
-                    # np.diff(H, append = H[H.max() == H].item())/2
-                    # H[H.max() == H].item()
-
-                    for i,j in enumerate(H):
-                        print(H[i], HB[i], HB[i+1])
-
-
-                    sys.exit("HH")
 
             ##  Iterative calculations  --------------------------------------
 
@@ -512,6 +386,8 @@ for filein in filenames:
             v_total_SD     = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
             v_total_N      = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
             height_mean    = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            height_lower   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+            height_upper   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
 
             ##  Compute stats in each cell
             for ilon, lon in enumerate(DOMOS_lon_array):
@@ -539,6 +415,14 @@ for filein in filenames:
                         height_mean   [klev, ilon, jlat] = np.mean(                   cell.height.values)
 
 
+                    ##  Create height bounds  ---------------------------------
+
+                    ##  We assume the sort is always correct
+                    if not (np.diff(height_mean[:, ilon, jlat]) > 0).all():
+                        sys.exit("Descending heights")
+
+                    ##  Assign boundaries to array
+                    H, height_lower[:, ilon, jlat], height_upper[:, ilon, jlat] = Oc.height_bounds(heights = height_mean[:, ilon, jlat])
 
 
             ##  numpy array export  ------------------------------------------
@@ -554,6 +438,8 @@ for filein in filenames:
             lats         = ds.createVariable('latitude',        'f4', ('latitude', ),                    zlib=True)
             lons         = ds.createVariable('longitude',       'f4', ('longitude',),                    zlib=True)
             height       = ds.createVariable('height',          'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
+            height_low   = ds.createVariable('height_low',      'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
+            height_up    = ds.createVariable('height_up',       'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
             U_mean       = ds.createVariable('u_mean',    np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
             U_median     = ds.createVariable('u_median',  np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
             U_SD         = ds.createVariable('u_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
@@ -564,57 +450,66 @@ for filein in filenames:
             V_N          = ds.createVariable('v_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
 
             ##  Set units attributes
-            lats.units     = 'degrees_north'
-            lons.units     = 'degrees_east'
-            height.units   = 'm'
-            U_mean.units   = 'm s**-1'
-            U_median.units = 'm s**-1'
-            U_SD.units     = 'm s**-1'
-            U_N.units      = ''
-            V_mean.units   = 'm s**-1'
-            V_median.units = 'm s**-1'
-            V_SD.units     = 'm s**-1'
-            V_N.units      = ''
+            lats.units       = 'degrees_north'
+            lons.units       = 'degrees_east'
+            height.units     = 'm'
+            height_low.units = 'm'
+            height_up.units  = 'm'
+            U_mean.units     = 'm s**-1'
+            U_median.units   = 'm s**-1'
+            U_SD.units       = 'm s**-1'
+            U_N.units        = ''
+            V_mean.units     = 'm s**-1'
+            V_median.units   = 'm s**-1'
+            V_SD.units       = 'm s**-1'
+            V_N.units        = ''
 
             ##  Set long name attribute
-            lats.long_name     = 'Latitude'
-            lons.long_name     = 'Longitude'
-            height.long_name   = 'Height'
-            U_mean.long_name   = 'U mean component of wind'
-            U_median.long_name = 'U median component of wind'
-            U_SD.long_name     = 'U SD component of wind'
-            U_N.long_name      = 'U component of wind count'
-            V_mean.long_name   = 'V mean component of wind'
-            V_median.long_name = 'V median component of wind'
-            V_SD.long_name     = 'V SD component of wind'
-            V_N.long_name      = 'V component of wind count'
+            lats.long_name       = 'Latitude'
+            lons.long_name       = 'Longitude'
+            height.long_name     = 'Height'
+            height_low.long_name = 'Height of lower cell boundary'
+            height_up.long_name  = 'Height of upper cell boundary'
+            U_mean.long_name     = 'U mean component of wind'
+            U_median.long_name   = 'U median component of wind'
+            U_SD.long_name       = 'U SD component of wind'
+            U_N.long_name        = 'U component of wind count'
+            V_mean.long_name     = 'V mean component of wind'
+            V_median.long_name   = 'V median component of wind'
+            V_SD.long_name       = 'V SD component of wind'
+            V_N.long_name        = 'V component of wind count'
 
             ##  Set standard name attribute
-            height.standard_name   = 'height'
-            U_mean.standard_name   = 'eastward_wind_mean'
-            U_median.standard_name = 'eastward_wind_median'
-            U_SD.standard_name     = 'eastward_wind_SD'
-            U_N.standard_name      = 'eastward_wind_count'
-            V_mean.standard_name   = 'northward_wind_mean'
-            V_median.standard_name = 'northward_wind_median'
-            V_SD.standard_name     = 'northward_wind_SD'
-            V_N.standard_name      = 'northward_wind_count'
+            height.standard_name     = 'height'
+            height_low.standard_name = 'low_boundary'
+            height_up.standard_name  = 'upper_boundary'
+            U_mean.standard_name     = 'eastward_wind_mean'
+            U_median.standard_name   = 'eastward_wind_median'
+            U_SD.standard_name       = 'eastward_wind_SD'
+            U_N.standard_name        = 'eastward_wind_count'
+            V_mean.standard_name     = 'northward_wind_mean'
+            V_median.standard_name   = 'northward_wind_median'
+            V_SD.standard_name       = 'northward_wind_SD'
+            V_N.standard_name        = 'northward_wind_count'
 
             ##  Assign arrays to datasets
-            lats[:]     = DOMOS_lat_array + cnf.D1.LatStep / 2
-            lons[:]     = DOMOS_lon_array + cnf.D1.LonStep / 2
-            height[:]   = height_mean
-            U_mean[:]   = u_total_mean
-            U_median[:] = u_total_median
-            U_SD[:]     = u_total_SD
-            U_N[:]      = u_total_N
-            V_mean[:]   = v_total_mean
-            V_median[:] = v_total_median
-            V_SD[:]     = v_total_SD
-            V_N[:]      = v_total_N
+            lats[:]       = DOMOS_lat_array + cnf.D1.LatStep / 2
+            lons[:]       = DOMOS_lon_array + cnf.D1.LonStep / 2
+            height[:]     = height_mean
+            height_low[:] = height_lower
+            height_up[:]  = height_upper
+            U_mean[:]     = u_total_mean
+            U_median[:]   = u_total_median
+            U_SD[:]       = u_total_SD
+            U_N[:]        = u_total_N
+            V_mean[:]     = v_total_mean
+            V_median[:]   = v_total_median
+            V_SD[:]       = v_total_SD
+            V_N[:]        = v_total_N
 
             ds.close()
             print(f"Written: {fileout}")
+            sys.exit("wait")
 
 
 #  SCRIPT END  ---------------------------------------------------------------
