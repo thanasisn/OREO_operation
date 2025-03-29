@@ -25,7 +25,7 @@ import glob
 from   datetime import datetime
 import netCDF4  as nc
 import numpy    as np
-import xarray as xr
+import xarray   as xr
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -74,6 +74,7 @@ lat_array       = np.arange(cnf.D1.South, cnf.D1.North)
 lon_array       = np.arange(cnf.D1.West,  cnf.D1.East)
 DOMOS_lat_array = np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LatStep)
 DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LonStep)
+
 
 ##  Main regridding function!!  ---------------------------------------------
 def regrid():
@@ -151,7 +152,12 @@ def regrid():
                 sys.exit("Descending heights")
 
             ##  Assign boundaries to array
-            H, height_lower[:, ilon, jlat], height_upper[:, ilon, jlat] = Oc.height_bounds(heights = height_mean[:, ilon, jlat])
+            H, height_lower[:, ilon, jlat], height_upper[:, ilon, jlat] = \
+                Oc.height_bounds(
+                    heights       = height_mean[:, ilon, jlat],
+                    remove_bottom = cnf.ERA5.extra_height_at_bottom,
+                    add_top       = cnf.ERA5.extra_height_at_top,
+                    quiet         = True)
 
     # ##  xarray export  -----------------------------------------------------
     # ## add time stamp to the dataset
@@ -196,9 +202,9 @@ def regrid():
     V_SD.units       = 'm s**-1'
     V_mean.units     = 'm s**-1'
     V_median.units   = 'm s**-1'
-    height.units     = 'm'
-    height_low.units = 'm'
-    height_up.units  = 'm'
+    height.units     = 'km'
+    height_low.units = 'km'
+    height_up.units  = 'km'
     lats.units       = 'degrees_north'
     lons.units       = 'degrees_east'
     time.calendar    = "proleptic_gregorian"
@@ -245,11 +251,11 @@ def regrid():
     V_SD[:]       = v_total_SD
     V_mean[:]     = v_total_mean
     V_median[:]   = v_total_median
-    height[:]     = height_mean
-    height_low[:] = height_lower
-    height_up[:]  = height_upper
-    lats[:]       = DOMOS_lat_array + cnf.D1.LatStep / 2
-    lons[:]       = DOMOS_lon_array + cnf.D1.LonStep / 2
+    height[:]     = height_mean  / 1000.  # to km
+    height_low[:] = height_lower / 1000.  # to km
+    height_up[:]  = height_upper / 1000.  # to km
+    lats[:]       = DOMOS_lat_array + cnf.D1.LatStep / 2  # centre of the cell
+    lons[:]       = DOMOS_lon_array + cnf.D1.LonStep / 2  # centre of the cell
     time[:]       = nc.date2num(sesdate, time.units)
 
     ##  Do the actual data write
@@ -267,7 +273,7 @@ month_C = 0
 for filein in filenames:
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
 
-    ##  Create ouput folders -------------------------------------------------
+    ##  Create output folders ------------------------------------------------
     seasonl_dir = os.path.join(cnf.ERA5.path_regrid, f"Seasonal_{cnf.D1.LatStep}x{cnf.D1.LonStep}")
     monthly_dir = os.path.join(cnf.ERA5.path_regrid, f"Monthly_{cnf.D1.LatStep}x{cnf.D1.LonStep}")
     os.makedirs(seasonl_dir, exist_ok = True)
@@ -284,8 +290,8 @@ for filein in filenames:
     DT = xr.open_dataset(filein)
 
     ##  Get ERA5 spatial step
-    lat_res = (np.unique(np.diff(DT.latitude.values))[0])
-    lon_res = (np.unique(np.diff(DT.longitude.values))[0])
+    lat_res = np.unique(np.diff(DT.latitude.values))[0]
+    lon_res = np.unique(np.diff(DT.longitude.values))[0]
 
     ## apply a domain constrains
     # DT = DT.sel(longitude = slice(cnf.ERA5.West,  cnf.ERA5.East ),
@@ -314,7 +320,7 @@ for filein in filenames:
             eda      = (datetime.now() + eta).replace(microsecond = 0)
             print(f"  {yyyy} {season} {seaso_C}/{filesin_N*4} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
 
-            ##  Create ouput file path  --------------------------------------
+            ##  Create output file path  -------------------------------------
             fileout = os.path.join(
                 seasonl_dir,
                 f"ERA5_{yyyy}_{season}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
@@ -324,11 +330,11 @@ for filein in filenames:
             if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
                 continue
 
-            ##  Select data to use by seaason  -------------------------------
+            ##  Select data to use by season  --------------------------------
             if season == 'Q1_DJF':
                 # File of previous year to read December for DJF season
                 previous_file = list(filter(lambda x:'ERA5_' + str(yyyy - 1) in x, filenames))
-                if (len(previous_file)!=1):
+                if len(previous_file)!=1:
                     print(f"SKIP season! No file for the {yyyy - 1} found\n")
                     continue
 
@@ -382,7 +388,7 @@ for filein in filenames:
             eda      = (datetime.now() + eta).replace(microsecond = 0)
             print(f"  {yyyy} M {m:02} {month_C}/{filesin_N*12} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
 
-            ##  Create ouput file path  --------------------------------------
+            ##  Create output file path  -------------------------------------
             fileout = os.path.join(
                 monthly_dir,
                 f"ERA5_{yyyy}_M{m:02}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
@@ -403,7 +409,7 @@ for filein in filenames:
             ##  Do the regrid and store file  --------------------------------
             regrid()
         ## end monthly loop
-    ## end monthly aggegation
+    ## end monthly aggregation
 ## end raw files iteration
 
 #  SCRIPT END  ---------------------------------------------------------------
