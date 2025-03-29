@@ -20,15 +20,15 @@ LOGs:
 ##  ERA5 data  ------------------------------------------------------
 ERA5:
     ## EPSG code
-    CRS:                 4326
+    CRS:                       4326
     ## will download here
-    path_raw:            "/home/athan/DATA/ERA5_domos_raw"
+    path_raw:                  "/home/athan/DATA/ERA5_domos_raw"
     ## output of regrided
-    path_regrid:         "/home/athan/DATA/ERA5_domos_regrid"
-    ## extend upper height with some meters to create top cell
-    extra_height_on_top: 1000
-    ## extend lower lever to this height to start the first cell
-    height_at_bottom:       0
+    path_regrid:               "/home/athan/DATA/ERA5_domos_regrid"
+    ## extend upper height by these meters to end the top cell
+    extra_height_at_top:       1000
+    ## extend lower height by these meters to start the bottom cell
+    extra_height_at_bottom:     100
 
 
 OREO:
@@ -36,7 +36,8 @@ OREO:
 
 
 LIVAS:
-    path_lookup: "/home/athan/DATA/OREO_tests_LIVAS_files"
+    # path_lookup: "/home/athan/DATA/OREO_tests_LIVAS_files"
+    path_lookup: "/home/folder/LIVAS"
     levels:      399
 
 
