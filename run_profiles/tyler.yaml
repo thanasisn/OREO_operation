@@ -20,12 +20,11 @@ LOGs:
 ##  ERA5 data  ------------------------------------------------------
 ERA5:
     ## EPSG code
-    CRS:         4326
+    CRS:                 4326
     ## will download here
-    path_raw:    "/home/athan/DATA/ERA5_domos_raw"
+    path_raw:            "/home/athan/DATA/ERA5_domos_raw"
     ## output of regrided
-    path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
-    data:        "mean" # "mean", "median"
+    path_regrid:         "/home/athan/DATA/ERA5_domos_regrid"
     ## extend upper height with some meters to create top cell
     extra_height_on_top: 1000
     ## extend lower lever to this height to start the first cell
@@ -49,8 +48,9 @@ D0: "global"
 ##  Used to download ERA5 and regrid
 D1:
     name:    "Input domain"
+    ## One aggregation scheme at a time
     Monthly:  yes
-    Seasonal: yes
+    Seasonal:  no
     ## Latitude range test
     ## The boundaries are expected to be multiples of the step!!
     North:     42
