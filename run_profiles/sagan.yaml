@@ -36,13 +36,15 @@ ERA5:
 ##  LIVAS lookup data  ----------------------------------------------
 LIVAS:
     ## location of LIVAS files
-    path_lookup: "/home/folder/LIVAS"
+    path_lookup:     "/home/folder/LIVAS"
     ## LIVAS levels constant
-    levels:      399
+    levels:          399
+    height_limit_km: 10
 
 
 OREO:
-    path_output: "/home/athan/DATA/OREO/"
+    path_output:    "/home/athan/DATA/OREO/"
+    contact_emails: "natsisphysicist@gmail.com, "
 
 
 

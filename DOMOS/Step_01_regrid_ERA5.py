@@ -62,18 +62,18 @@ fl_North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
 fl_South = Oc.border_down(cnf.D1.South, cnf.D1.LatStep)
 fl_East  = Oc.border_up(  cnf.D1.East,  cnf.D1.LonStep)
 fl_West  = Oc.border_down(cnf.D1.West,  cnf.D1.LonStep)
-filenames = glob.glob(f"{cnf.ERA5.path_raw}/ERA5_*_{fl_North}N{fl_South}S{fl_West}W{fl_East}E.nc")
-filenames.sort()
+filenames = glob.glob(f"{cnf.ERA5.path_raw}/ERA5_*_lat_{fl_South}_{fl_North}_lon_{fl_West}_{fl_East}.nc")
 
 if len(filenames) < 1:
     sys.exit(f"\nNo input file found in {cnf.ERA5.path_raw} !!\n")
 
 
 ##  Construction of the output grid  ----------------------------------------
-lat_array       = np.arange(cnf.D1.South, cnf.D1.North)
-lon_array       = np.arange(cnf.D1.West,  cnf.D1.East)
-DOMOS_lat_array = np.arange(cnf.D1.North, cnf.D1.South, -cnf.D1.LatStep)
-DOMOS_lon_array = np.arange(cnf.D1.West,  cnf.D1.East,   cnf.D1.LonStep)
+
+##  Make sure these bounds select the whole domain to regrid misalignment
+##  will not be detected!!
+REGRID_lat_centers = np.arange(fl_North, fl_South + 1, -cnf.D1.LatStep) - cnf.D1.LatStep / 2
+REGRID_lon_centers = np.arange(fl_West,  fl_East,       cnf.D1.LonStep) + cnf.D1.LonStep / 2
 
 
 ##  Main regridding function!!  ---------------------------------------------
@@ -109,31 +109,32 @@ def regrid():
     ##  Iterative calculations  ----------------------------------------------
 
     ##  Init target arrays
-    height_lower   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    height_mean    = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    height_upper   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    u_total_N      = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    u_total_SD     = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    u_total_mean   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    u_total_median = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    v_total_N      = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    v_total_SD     = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    v_total_mean   = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
-    v_total_median = np.empty((len(DTses.pressure_level), len(DOMOS_lon_array), len(DOMOS_lat_array)))
+    height_lower   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    height_mean    = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    height_upper   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    u_total_N      = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    u_total_SD     = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    u_total_mean   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    u_total_median = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    v_total_N      = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    v_total_SD     = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    v_total_mean   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    v_total_median = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
 
     ##  Compute stats in each cell  ------------------------------------------
-    for ilon, lon in enumerate(DOMOS_lon_array):
-        for jlat, lat in enumerate(DOMOS_lat_array):
+    for ilon, lon in enumerate(REGRID_lon_centers):
+        for jlat, lat in enumerate(REGRID_lat_centers):
             for klev, lev in enumerate(DTses.pressure_level):
 
                 ## This includes each of the limits value two times in order to centre cells
                 cell = DTses.where(
-                    (DTses.longitude >= lon) &
-                    (DTses.longitude <= lon + cnf.D1.LonStep) &
-                    (DTses.latitude  >= lat) &
-                    (DTses.latitude  <= lat + cnf.D1.LatStep) &
+                    (DTses.longitude >= lon - cnf.D1.LonStep/2) &
+                    (DTses.longitude <= lon + cnf.D1.LonStep/2) &
+                    (DTses.latitude  >= lat - cnf.D1.LatStep/2) &
+                    (DTses.latitude  <= lat + cnf.D1.LatStep/2) &
                     (DTses.pressure_level == lev),
                     drop = True)
+                cell.coords
 
                 ## gather all statistics for each cell
                 u_total_mean  [klev, ilon, jlat] = np.mean(                   cell.u.values)
@@ -169,13 +170,14 @@ def regrid():
     # print(f"Written: {fileout}")
 
     ##  Numpy array export  --------------------------------------------------
-    ds           = nc.Dataset(fileout, 'w', format='NETCDF4')
+    ds = nc.Dataset(fileout, 'w', format='NETCDF4')
 
     ##  Define coordinates
-    latitude  = ds.createDimension('latitude',       len(DOMOS_lat_array))
-    lev       = ds.createDimension('pressure_level', len(DTses.pressure_level))
-    longitude = ds.createDimension('longitude',      len(DOMOS_lon_array))
-    tim       = ds.createDimension('time',           1)
+    ds.createDimension('latitude',       len(REGRID_lat_centers))
+    ds.createDimension('pressure_level', len(DTses.pressure_level))
+    ds.createDimension('longitude',      len(REGRID_lon_centers))
+    ds.createDimension('time',           1)
+    ds.createDimension('time_span',      1)
 
     ##  Create variables data types
     U_N        = ds.createVariable('u_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
@@ -189,9 +191,10 @@ def regrid():
     height     = ds.createVariable('height',          'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
     height_low = ds.createVariable('height_low',      'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
     height_up  = ds.createVariable('height_up',       'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    lats       = ds.createVariable('latitude',        'f4', ('latitude', ),                    zlib=True)
-    lons       = ds.createVariable('longitude',       'f4', ('longitude',),                    zlib=True)
+    lats       = ds.createVariable('latitude',        'f4', ('latitude', ), zlib=True)
+    lons       = ds.createVariable('longitude',       'f4', ('longitude',), zlib=True)
     time       = ds.createVariable('time',      np.float64, ('time',))
+    time_span   = ds.createVariable('time_span',  np.int32, ('time_span',))
 
     ##  Set units attributes
     U_N.units        = ''
@@ -207,8 +210,9 @@ def regrid():
     height_up.units  = 'km'
     lats.units       = 'degrees_north'
     lons.units       = 'degrees_east'
-    time.calendar    = "proleptic_gregorian"
+    time.calendar    = 'proleptic_gregorian'
     time.units       = 'seconds since 1970-01-01 00:00:00' ## same as raw ERA5
+    time_span.units  = 'month'
 
     ##  Set long name attribute
     U_N.long_name        = 'U component of wind count'
@@ -225,6 +229,7 @@ def regrid():
     lats.long_name       = 'Latitude'
     lons.long_name       = 'Longitude'
     time.long_name       = 'Time'
+    time_span.long_name  = 'The time span of the aggregated data'
 
     ##  Set standard name attribute
     U_N.standard_name        = 'eastward_wind_count'
@@ -241,6 +246,7 @@ def regrid():
     lats.standard_name       = 'latitude'
     lons.standard_name       = 'longitude'
     time.standard_name       = 'time'
+    time_span.standard_name  = 'duration'
 
     ##  Assign arrays to datasets
     U_N[:]        = u_total_N
@@ -254,9 +260,19 @@ def regrid():
     height[:]     = height_mean  / 1000.  # to km
     height_low[:] = height_lower / 1000.  # to km
     height_up[:]  = height_upper / 1000.  # to km
-    lats[:]       = DOMOS_lat_array + cnf.D1.LatStep / 2  # centre of the cell
-    lons[:]       = DOMOS_lon_array + cnf.D1.LonStep / 2  # centre of the cell
+    lats[:]       = REGRID_lat_centers    # centre of the cell
+    lons[:]       = REGRID_lon_centers    # centre of the cell
     time[:]       = nc.date2num(sesdate, time.units)
+    time_span[:]  = stats_duration
+
+    ##  Set global attributes
+    my_attrs = dict(title     = "Regridded ERA5 data",
+                    type      = data_type,
+                    details   = stats_message,
+                    data_date = str(sesdate),
+                    contacts  = cnf.OREO.contact_emails)
+    for name, value in my_attrs.items():
+        setattr(ds, name, value)
 
     ##  Do the actual data write
     ds.close()
@@ -307,6 +323,9 @@ for filein in filenames:
 
     ##  Export with seasonal aggregation  ------------------------------------
     if SEASONAL:
+        stats_message  = "Statistical values (mean, median, SD and N) refer to the seasonal values of 3 calendar months, with the approximate center the day of 'time' variable."
+        stats_duration = 3
+        data_type      = "Seasonal"
 
         ##  Compute by season of the year
         seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
@@ -323,7 +342,7 @@ for filein in filenames:
             ##  Create output file path  -------------------------------------
             fileout = os.path.join(
                 seasonl_dir,
-                f"ERA5_{yyyy}_{season}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
+                f"ERA5_{yyyy}_{season}_lat_{np.min(REGRID_lat_centers)}_{np.max(REGRID_lat_centers)}_lon_{np.min(REGRID_lon_centers)}_{np.max(REGRID_lon_centers)}.nc"
             )
 
             ##  Skip already existing files  ---------------------------------
@@ -376,6 +395,9 @@ for filein in filenames:
 
     ##  Export monthly aggregation  ------------------------------------------
     if MONTHLY:
+        stats_message  = "Statistical values (mean, median, SD and N) refer to the monthly values starting from the first day of 'time' variable."
+        stats_duration = 1
+        data_type      = "Monthly"
 
         ##  Iterate all months of a year
         for m in range(1, 13):
@@ -391,7 +413,7 @@ for filein in filenames:
             ##  Create output file path  -------------------------------------
             fileout = os.path.join(
                 monthly_dir,
-                f"ERA5_{yyyy}_M{m:02}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
+                f"ERA5_{yyyy}_M{m:02}_lat_{np.min(REGRID_lat_centers)}_{np.max(REGRID_lat_centers)}_lon_{np.min(REGRID_lon_centers)}_{np.max(REGRID_lon_centers)}.nc"
             )
 
             ##  Skip already existing files  ---------------------------------

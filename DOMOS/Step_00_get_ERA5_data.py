@@ -20,9 +20,6 @@ import oreo_mod.utils as Ou
 import oreo_mod.calc  as Oc
 tic = datetime.now()
 
-##  TEST
-# os.chdir("./DOMOS")
-
 ##  Load configuration profile by host name  ---------------------------------
 config_file = f"../run_profiles/{os.uname()[1]}.yaml"
 cnf = Ou.get_configs(config_file)
@@ -33,7 +30,7 @@ QUIET = cnf.mode.Quiet
 if not os.path.isdir(cnf.ERA5.path_raw):
     sys.exit(f"\nFolder {cnf.ERA5.path_raw} don't exist!\n")
 
-print(f"Want ERA5 domain:                     {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
+print(f"Want ERA5 domain:                      {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
 
 ##  Override random domain with target resolution boundaries  ----------------
 cnf.D1.North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
@@ -41,7 +38,7 @@ cnf.D1.South = Oc.border_down(cnf.D1.South, cnf.D1.LatStep)
 cnf.D1.East  = Oc.border_up(  cnf.D1.East,  cnf.D1.LonStep)
 cnf.D1.West  = Oc.border_down(cnf.D1.West,  cnf.D1.LonStep)
 
-print(f"Expand domain acording to resolution: {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
+print(f"Expand domain according to resolution: {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
 
 ##  Start cds api client
 client = cdsapi.Client(quiet = QUIET)
@@ -51,7 +48,7 @@ for yyyy in range(cnf.Range.start, cnf.Range.until + 1):
     #  Filename of the file to download
     target = os.path.join(
         cnf.ERA5.path_raw,
-        f"ERA5_{yyyy}_{cnf.D1.North}N{cnf.D1.South}S{cnf.D1.West}W{cnf.D1.East}E.nc"
+        f"ERA5_{yyyy}_lat_{cnf.D1.South}_{cnf.D1.North}_lon_{cnf.D1.West}_{cnf.D1.East}.nc"
     )
 
     #  Skip if we already have the file

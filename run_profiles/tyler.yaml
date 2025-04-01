@@ -43,7 +43,8 @@ LIVAS:
 
 
 OREO:
-    path_output: "/home/athan/DATA/OREO/"
+    path_output:    "/home/athan/DATA/OREO/"
+    contact_emails: "natsisphysicist@gmail.com, "
 
 
 
@@ -57,8 +58,8 @@ D0: "global"
 D1:
     name:    "Input domain"
     ## One aggregation scheme at a time
-    Monthly:   no
-    Seasonal: yes
+    Monthly:  yes
+    Seasonal: no
     ## Latitude range test
     ## The boundaries are expected to be multiples of the step!!
     North:     42
