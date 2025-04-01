@@ -29,16 +29,23 @@ ERA5:
     extra_height_at_top:       1000
     ## extend lower height by these meters to start the bottom cell
     extra_height_at_bottom:     100
+    ## which variable to use as wind {"mean", "median"}
+    data: "mean"
+
+
+##  LIVAS lookup data  ----------------------------------------------
+LIVAS:
+    ## location of LIVAS files
+    path_lookup:     "/home/folder/LIVAS"
+    ## LIVAS levels constant
+    levels:          399
+    height_limit_km: 10
 
 
 OREO:
     path_output: "/home/athan/DATA/OREO/"
 
 
-LIVAS:
-    # path_lookup: "/home/athan/DATA/OREO_tests_LIVAS_files"
-    path_lookup: "/home/folder/LIVAS"
-    levels:      399
 
 
 ##  Define domains  -------------------------------------------------
@@ -50,8 +57,8 @@ D0: "global"
 D1:
     name:    "Input domain"
     ## One aggregation scheme at a time
-    Monthly:  yes
-    Seasonal:  no
+    Monthly:   no
+    Seasonal: yes
     ## Latitude range test
     ## The boundaries are expected to be multiples of the step!!
     North:     42
@@ -72,7 +79,7 @@ D1:
     # LonStep:    5
 
 
-##  Set the years to download  --------------------------------------
+##  Set the years to process  ---------------------------------------
 Range:
     start: 2020
     until: 2020

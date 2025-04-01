@@ -81,7 +81,7 @@ def regrid():
     """
     Regrid and store ERA5 data.  This is meant to be used only in this script
     to create monthly and seasonal aggregation of ERA5 data with a consistent
-    method.  This function defines how ERA5 regridded data are named.
+    method.  This function defines how ERA5 regridded data are named and stored.
 
     Returns
     -------
