@@ -7,6 +7,7 @@ operation of the project.  They define some aspects of the methodology.
 """
 
 import sys
+import warnings
 import metpy.calc
 import xarray as xr
 import numpy  as np
@@ -74,7 +75,7 @@ def border_up(target, step, limit):
     """
     res = target + step - target % step
     if not target * limit > 0:
-        sys.exit("Stop! Target and limit have different signs")
+        warnings.warn("Target coordinate and limit have different signs !!")
     if res > limit:
         res = limit
     return res
@@ -112,7 +113,7 @@ def border_down(target, step, limit):
     """
     res = target - target % step
     if not target * limit > 0:
-        sys.exit("Stop! Target and limit have different signs")
+        warnings.warn("Target coordinate and limit have different signs !!")
     if res < limit:
         res = limit
     return res

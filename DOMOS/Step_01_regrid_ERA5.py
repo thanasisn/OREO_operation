@@ -52,16 +52,17 @@ SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
 
-##  Check destination folder exists  ------------------------------------------
+##  Check destination folder exists  -----------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
     sys.exit(f"\nFolder {cnf.ERA5.path_regrid} don't exist !!\n")
 
-##  Choose input files  -------------------------------------------------------
-##  Use expanded domain to find input files
-fl_North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
-fl_South = Oc.border_down(cnf.D1.South, cnf.D1.LatStep)
-fl_East  = Oc.border_up(  cnf.D1.East,  cnf.D1.LonStep)
-fl_West  = Oc.border_down(cnf.D1.West,  cnf.D1.LonStep)
+##  Choose input files  ------------------------------------------------------
+##  Override random domain with target resolution boundaries
+fl_North = Oc.border_up(  cnf.D1.North, cnf.D1.MaxLatStep,   90)
+fl_South = Oc.border_down(cnf.D1.South, cnf.D1.MaxLatStep,  -90)
+fl_East  = Oc.border_up(  cnf.D1.East,  cnf.D1.MaxLonStep,  180)
+fl_West  = Oc.border_down(cnf.D1.West,  cnf.D1.MaxLonStep, -180)
+
 filenames = glob.glob(f"{cnf.ERA5.path_raw}/ERA5_*_lat_{fl_South}_{fl_North}_lon_{fl_West}_{fl_East}.nc")
 
 if len(filenames) < 1:
@@ -70,8 +71,8 @@ if len(filenames) < 1:
 
 ##  Construction of the output grid  ----------------------------------------
 
-##  Make sure these bounds select the whole domain to regrid misalignment
-##  will not be detected!!
+##  Make sure these bounds select the whole domain to regrid. Misalignments
+##  will not be detected at run time, but v_N and u_N can be used to check.
 REGRID_lat_centers = np.arange(fl_North, fl_South + 1, -cnf.D1.LatStep) - cnf.D1.LatStep / 2
 REGRID_lon_centers = np.arange(fl_West,  fl_East,       cnf.D1.LonStep) + cnf.D1.LonStep / 2
 
@@ -126,7 +127,8 @@ def regrid():
         for jlat, lat in enumerate(REGRID_lat_centers):
             for klev, lev in enumerate(DTses.pressure_level):
 
-                ## This includes each of the limits value two times in order to centre cells
+                ## This includes each of the limit value two times in nearby
+                ## cells, in order to pretty centre the cells.
                 cell = DTses.where(
                     (DTses.longitude >= lon - cnf.D1.LonStep/2) &
                     (DTses.longitude <= lon + cnf.D1.LonStep/2) &
@@ -194,24 +196,22 @@ def regrid():
     lats       = ds.createVariable('latitude',        'f4', ('latitude', ), zlib=True)
     lons       = ds.createVariable('longitude',       'f4', ('longitude',), zlib=True)
     time       = ds.createVariable('time',      np.float64, ('time',))
-    time_span   = ds.createVariable('time_span',  np.int32, ('time_span',))
+    time_span  = ds.createVariable('time_span',   np.int32, ('time_span',))
 
     ##  Set units attributes
-    U_N.units        = ''
     U_SD.units       = 'm s**-1'
     U_mean.units     = 'm s**-1'
     U_median.units   = 'm s**-1'
-    V_N.units        = ''
     V_SD.units       = 'm s**-1'
     V_mean.units     = 'm s**-1'
     V_median.units   = 'm s**-1'
-    height.units     = 'km'
-    height_low.units = 'km'
-    height_up.units  = 'km'
+    height.units     = 'km'  ## convertion at the final step
+    height_low.units = 'km'  ## convertion at the final step
+    height_up.units  = 'km'  ## convertion at the final step
     lats.units       = 'degrees_north'
     lons.units       = 'degrees_east'
     time.calendar    = 'proleptic_gregorian'
-    time.units       = 'seconds since 1970-01-01 00:00:00' ## same as raw ERA5
+    time.units       = 'seconds since 1970-01-01 00:00:00'  ## same as raw ERA5
     time_span.units  = 'month'
 
     ##  Set long name attribute
@@ -289,7 +289,7 @@ month_C = 0
 for filein in filenames:
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
 
-    ##  Create output folders ------------------------------------------------
+    ##  Create output folders  -----------------------------------------------
     seasonl_dir = os.path.join(cnf.ERA5.path_regrid, f"Seasonal_{cnf.D1.LatStep}x{cnf.D1.LonStep}")
     monthly_dir = os.path.join(cnf.ERA5.path_regrid, f"Monthly_{cnf.D1.LatStep}x{cnf.D1.LonStep}")
     os.makedirs(seasonl_dir, exist_ok = True)
@@ -332,7 +332,7 @@ for filein in filenames:
         for season_idx, season in enumerate(seasons):
             ##  Output process info  -----------------------------------------
             seaso_C += 1
-            complete = 100 * seaso_C / (filesin_N * 4)
+            complete = 100 * (seaso_C - 1) / (filesin_N * 4)
             duration = datetime.now() - tic
             total    = duration * 100 / complete
             eta      = total - duration
@@ -403,7 +403,7 @@ for filein in filenames:
         for m in range(1, 13):
             ##  Output process info  -----------------------------------------
             month_C += 1
-            complete = 100 * month_C/(filesin_N*12)
+            complete = 100 * (month_C - 1) / (filesin_N * 12)
             duration = datetime.now() - tic
             total    = duration * 100 / complete
             eta      = total - duration

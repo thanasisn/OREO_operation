@@ -105,7 +105,7 @@ for ERA_file in ERA_filenames:
     print(f"\nProcessing: {ERA_file}")
 
     # reading variables of interest
-    ERA = xr.open_dataset(ERA_file)
+    ERA           = xr.open_dataset(ERA_file)
     ERA_dataset   = nc.Dataset(ERA_file)
 
     ERA_Latitude  = ERA_dataset['latitude'][:]
@@ -117,6 +117,7 @@ for ERA_file in ERA_filenames:
     ERA_U_SD      = ERA_dataset['u_SD'][:]
     ERA_V         = ERA_dataset[ V ][:]
     ERA_V_SD      = ERA_dataset['u_SD'][:]
+    ## and heigth
 
     # extracting "yyyymm" suffix from ERA5 filename, for finding the satellite-based MM files.
     ERA_year          = int(re.compile('ERA5_([0-9]*)_.*.nc').search(ERA_file).group(1))
@@ -143,16 +144,6 @@ for ERA_file in ERA_filenames:
     if (not FORCE) and (not Ou.output_needs_update(ERA_file, fileout)):
         continue
 
-    # ######################
-    # ###       CAMS     ###
-    # ######################
-    #
-    # CAMS_file      = CAMS_path + '\\' + 'CAMS_' + ERA_substrings[0] + '_' + ERA_season + '.nc'
-    # CAMS_dataset   = nc.Dataset(CAMS_file)
-    # CAMS_latitude  = CAMS_dataset['Latitude'][:]
-    # CAMS_longitude = CAMS_dataset['Longitude'][:]
-    # CAMS_Height    = CAMS_dataset['Height'][:]
-    # CAMS_Dust_MC   = CAMS_dataset['CAMS_Dust_MC'][:]
 
     #######################
     ### LIVAS pure-dust ###
@@ -202,11 +193,7 @@ for ERA_file in ERA_filenames:
     Final_PD_a532nm             = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
     Final_PD_a532nm_SD          = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
     Final_PD_MC                 = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
-    Final_PD_MC_FM              = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
-    Final_PD_MC_CM              = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
     Final_PD_MC_SD              = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
-    Final_PD_MC_FM_SD           = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
-    Final_PD_MC_CM_SD           = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
 
     Final_Number_of_Profiles[:]    = np.nan
     Final_Number_of_L2Profiles[:]  = np.nan
@@ -215,11 +202,8 @@ for ERA_file in ERA_filenames:
     Final_PD_a532nm[:]             = np.nan
     Final_PD_a532nm_SD[:]          = np.nan
     Final_PD_MC[:]                 = np.nan
-  #  Final_PD_MC_FM[:]              = np.nan # fine mode no need
-    Final_PD_MC_CM[:]              = np.nan
     Final_PD_MC_SD[:]              = np.nan
-  #  Final_PD_MC_FM_SD[:]           = np.nan
-    Final_PD_MC_CM_SD[:]           = np.nan
+
 
     Empty_Vertical_array    = np.empty(cnf.LIVAS.levels)
     Empty_Vertical_array[:] = np.nan
@@ -246,28 +230,6 @@ for ERA_file in ERA_filenames:
             ##  expand all combinations of LIVAS coordinates
             comb = np.array(np.meshgrid(Llats, Llons)).T.reshape(-1,2)
 
-            # LIVAS_lons = [lon - 2,
-            #               lon - 1,
-            #               lon,
-            #               lon + 1,
-            #               lon + 2,
-            #               lon - 2,
-            #               lon - 1,
-            #               lon,
-            #               lon + 1,
-            #               lon + 2]
-
-            # LIVAS_lats = [lat - 0.5,
-            #               lat + 0.5,
-            #               lat - 0.5,
-            #               lat + 0.5,
-            #               lat - 0.5,
-            #               lat + 0.5,
-            #               lat - 0.5,
-            #               lat + 0.5,
-            #               lat - 0.5,
-            #               lat + 0.5]
-
             file_counter = 0
 
             idx_lat = count_lat
@@ -285,15 +247,12 @@ for ERA_file in ERA_filenames:
 
                 file_existing  = exists(LIVAS_file)
 
-                if (not file_existing) | \
-                   (LIVAS_basename == 'LIVAS_CALIPSO_L2_Grid_lon_c_-106.5_lat_c_-55.5.nc') | \
-                   (LIVAS_basename == 'LIVAS_CALIPSO_L2_Grid_lon_c_-106.5_lat_c_-48.5.nc') :
-
+                if (not file_existing)  :
                     print(f"Missing file: {os.path.basename(LIVAS_basename)}")
                     continue
-
                 else:
 
+                    print(LIVAS_file)
                     LIVAS_dataset       = nc.Dataset(LIVAS_file)
                     Profile_Time_Parsed = LIVAS_dataset['/Profile_Time_Parsed'][:]
                     Months              = np.empty((len(Profile_Time_Parsed)))
@@ -354,7 +313,7 @@ for ERA_file in ERA_filenames:
                         file_counter = file_counter + 1
 
 
-                        ## to continue
+            sys.exit("ff")
 
             Number_of_Profiles = np.shape(Total_LIVAS_PD_MC)[0]
             temp = np.copy(Total_LIVAS_PD_MC)
@@ -365,38 +324,36 @@ for ERA_file in ERA_filenames:
             temp = np.ravel([np.nansum(temp[i,:]) for i in range(np.shape(temp)[0]) ])
             L2_CF_profiles  = len(temp) - len(np.ravel(np.where(temp == cnf.LIVAS.levels)))
 
+
             PD_a532nm    = np.nanmean(Total_LIVAS_PD_a532nm,axis = 0)
             PD_MC        = np.nanmean(Total_LIVAS_PD_MC,    axis = 0)
             PD_MC_FM     = np.nanmean(Total_LIVAS_PD_MC_FM, axis = 0)
             PD_MC_CM     = np.nanmean(Total_LIVAS_PD_MC_CM, axis = 0)
+
             PD_MC_SD     = np.nanstd(Total_LIVAS_PD_MC,     axis = 0, ddof = 1)
             PD_MC_FM_SD  = np.nanstd(Total_LIVAS_PD_MC_FM,  axis = 0, ddof = 1)
             PD_MC_CM_SD  = np.nanstd(Total_LIVAS_PD_MC_CM,  axis = 0, ddof = 1)
             PD_a532nm_SD = np.nanstd(Total_LIVAS_PD_a532nm, axis = 0, ddof = 1)
 
-            PD_a532nm[Altitude > 10]    = np.nan
-            PD_MC[Altitude > 10]        = np.nan
-            PD_MC_FM[Altitude > 10]     = np.nan
-            PD_MC_CM[Altitude > 10]     = np.nan
-            PD_MC_SD[Altitude > 10]     = np.nan
-            PD_MC_FM_SD[Altitude  > 10] = np.nan
-            PD_MC_CM_SD[Altitude  > 10] = np.nan
-            PD_a532nm_SD[Altitude > 10] = np.nan
+            PD_a532nm   [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            PD_MC       [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            PD_MC_FM    [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            PD_MC_CM    [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            PD_MC_SD    [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            PD_MC_FM_SD [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            PD_MC_CM_SD [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            PD_a532nm_SD[Altitude > cnf.LIVAS.height_limit_km] = np.nan
 
             arr = np.copy(PD_a532nm)
             arr[np.isnan(arr)] = 0
-            DOD_532nm       = np.trapz(Altitude, arr)
+            DOD_532nm          = np.trapz(Altitude, arr)
             arr = np.copy(PD_a532nm_SD)
             arr[np.isnan(arr)] = 0
             DOD_532nm_SD    = np.trapz(Altitude, arr)
 
             for count_alt in range(cnf.LIVAS.levels):
                 Final_PD_MC[idx_lon,idx_lat,count_alt]       = PD_MC[count_alt]
-                # Final_PD_MC_FM[idx_lon,idx_lat,count_alt]    = PD_MC_FM[count_alt]
-                Final_PD_MC_CM[idx_lon,idx_lat,count_alt]    = PD_MC_CM[count_alt]
                 Final_PD_MC_SD[idx_lon,idx_lat,count_alt]    = PD_MC_SD[count_alt]
-                # Final_PD_MC_FM_SD[idx_lon,idx_lat,count_alt] = PD_MC_FM_SD[count_alt]
-                Final_PD_MC_CM_SD[idx_lon,idx_lat,count_alt] = PD_MC_CM_SD[count_alt]
                 Final_PD_a532nm                              = PD_a532nm[count_alt]
                 Final_PD_a532nm_SD                           = PD_a532nm_SD[count_alt]
 

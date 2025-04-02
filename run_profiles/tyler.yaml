@@ -62,14 +62,16 @@ D1:
     Seasonal: no
     ## Latitude range test
     ## The boundaries are expected to be multiples of the step!!
-    North:     42
-    South:     22
-    LatStep:    2
+    North:      42
+    South:      22
+    LatStep:     2
+    MaxLatStep:  2  # used to limit the needed downloads
     ## Longitude range test
     ## The boundaries are expected to be multiples of the step!!
-    West:     -80
-    East:      25
-    LonStep:    5
+    West:      -80
+    East:       25
+    LonStep:     5
+    MaxLonStep:  5  # used to limit the needed downloads
     # ## Latitude range DOMOS
     # North:    42
     # South:   -62

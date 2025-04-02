@@ -33,12 +33,12 @@ if not os.path.isdir(cnf.ERA5.path_raw):
 print(f"Want ERA5 domain:                      {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
 
 ##  Override random domain with target resolution boundaries  ----------------
-cnf.D1.North = Oc.border_up(  cnf.D1.North, cnf.D1.LatStep)
-cnf.D1.South = Oc.border_down(cnf.D1.South, cnf.D1.LatStep)
-cnf.D1.East  = Oc.border_up(  cnf.D1.East,  cnf.D1.LonStep)
-cnf.D1.West  = Oc.border_down(cnf.D1.West,  cnf.D1.LonStep)
+cnf.D1.North = Oc.border_up(  cnf.D1.North, cnf.D1.MaxLatStep,   90)
+cnf.D1.South = Oc.border_down(cnf.D1.South, cnf.D1.MaxLatStep,  -90)
+cnf.D1.East  = Oc.border_up(  cnf.D1.East,  cnf.D1.MaxLonStep,  180)
+cnf.D1.West  = Oc.border_down(cnf.D1.West,  cnf.D1.MaxLonStep, -180)
 
-print(f"Expand domain according to resolution: {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
+print(f"Domain expanded according to resolution: {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
 
 ##  Start cds api client
 client = cdsapi.Client(quiet = QUIET)

@@ -31,7 +31,7 @@ set +e
 
 
 info "Activate Conda environment"
-source $HOME/PROGRAMS/miniconda3/bin/activate && \
+source /home/folder/miniconda/bin/activate && \
   conda activate oreo ||                         \
   { echo "Failed to activate environment"; exit 1; }
 
