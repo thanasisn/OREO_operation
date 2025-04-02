@@ -6,6 +6,7 @@ operation of the project.  They define some aspects of the methodology.
 @author: thanasisn
 """
 
+import sys
 import metpy.calc
 import xarray as xr
 import numpy  as np
@@ -42,54 +43,79 @@ def z_to_height(DT):
     return DT
 
 
-def border_up(limit, step):
+def border_up(target, step, limit):
     """
     Return the next coordinate that satisfy the given step, going to the
-    positive direction.  Usually for North and East boundaries.
+    positive direction.  Usually for North and East boundaries. Thus the
+    limit should be 90 for latitude and 180 for longitude.
 
     Parameters
     ----------
-    limit : float
-        A limit for the coordinate.
+    target : float
+        A target for the coordinate.
     step : TYPE
-        A coordinate limit with the step/resolution we need.
+        A coordinate target with the step/resolution we need.
+    limit : float
+        The upper coordinate limit.
 
     Returns
     -------
-    A value that includes the limit and may be bigger to meet the next step
-    value
+    A value that includes the target and may be bigger to meet the next step
+    value, but always limited by upper 'limit'.
 
-    >>> border_up(-11, 5)
+    >>> border_up(-11, 5, -1)
     -10
-    >>> border_up( 11, 5)
+    >>> border_up(11, 5, 90)
     15
+    >>> border_up(91, 5, 90)
+    90
+    >>> border_up( 89, 5,  90)
+    90
     """
-    return limit + step - limit % step
+    res = target + step - target % step
+    if not target * limit > 0:
+        sys.exit("Stop! Target and limit have different signs")
+    if res > limit:
+        res = limit
+    return res
 
 
-def border_down(limit, step):
+
+def border_down(target, step, limit):
     """
     Return the next coordinate that satisfy the given step, going to the
-    negative direction.  Usually for South and West boundaries.
+    negative direction.  Usually for South and West boundaries.  Thus the
+    limit should be -90 for latitude and -180 for longitude.
 
     Parameters
     ----------
-    limit : float
-        A limit for the coordinate.
+    target : float
+        A target for the coordinate.
     step : TYPE
-        A coordinate limit with the step/resolution we need.
+        A coordinate target with the step/resolution we need.
+    limit : float
+        The lower coordinate limit.
 
     Returns
     -------
-    A value that includes the limit and may be smaller to meet the previous
-    step value.
+    A value that includes the target and may be smaller to meet the previous
+    step value, but always limited by lower 'limit'
 
-    >>> border_down(-11, 5)
+    >>> border_down(-11, 5, -90)
     -15
-    >>> border_down( 11, 5)
+    >>> border_down( 11, 5, 1)
     10
+    >>> border_down(-91, 5, -90)
+    -90
+    >>> border_down(-89, 5, -90)
+    -90
     """
-    return limit - limit % step
+    res = target - target % step
+    if not target * limit > 0:
+        sys.exit("Stop! Target and limit have different signs")
+    if res < limit:
+        res = limit
+    return res
 
 
 def height_bounds(heights, remove_bottom = 100, add_top = 1000, quiet = True):
@@ -178,4 +204,3 @@ def height_bounds(heights, remove_bottom = 100, add_top = 1000, quiet = True):
 
     ## return a simple array with heights and corresponding bounds
     return np.array((H, lower, upper))
-
