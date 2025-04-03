@@ -1,12 +1,12 @@
 #
-#  Profile options for "tyler" host
+#  Profile options for "crane" host
 #
 #  We assume each host use a different profile for development, production etc
 #
 
 ##  Some running modes switches  ------------------------------------
 mode:
-    Force: yes
+    Force: no
     Quiet: no
     Test:  yes
 
@@ -16,16 +16,38 @@ LOGs:
     path: "/home/athan/OREO/operation/LOGs"
     run:  "/home/athan/OREO/operation/LOGs/Run.log"
 
+
 ##  ERA5 data  ------------------------------------------------------
 ERA5:
     ## EPSG code
-    CRS:         4326
+    CRS:                       4326
     ## will download here
-    path_raw:    "/home/athan/DATA/ERA5_domos_raw"
+    path_raw:                  "/home/athan/DATA/ERA5_domos_raw"
     ## output of regrided
-    path_regrid: "/home/athan/DATA/ERA5_domos_regrid"
-    ## method used to aggregate data
-    method:      "mean"
+    path_regrid:               "/home/athan/DATA/ERA5_domos_regrid"
+    ## extend upper height by these meters to end the top cell
+    extra_height_at_top:       1000
+    ## extend lower height by these meters to start the bottom cell
+    extra_height_at_bottom:     100
+    ## which variable to use as wind {"mean", "median"}
+    data: "mean"
+
+
+##  LIVAS lookup data  ----------------------------------------------
+LIVAS:
+    ## location of LIVAS files
+    path_lookup:     "/home/folder/LIVAS"
+    ## LIVAS levels constant
+    levels:          399
+    height_limit_km: 10
+
+
+OREO:
+    path_output:    "/home/athan/DATA/OREO/"
+    contact_emails: "natsisphysicist@gmail.com, "
+
+
+
 
 ##  Define domains  -------------------------------------------------
 
@@ -34,15 +56,22 @@ D0: "global"
 
 ##  Used to download ERA5 and regrid
 D1:
-    name: "Input domain"
+    name:    "Input domain"
+    ## One aggregation scheme at a time
+    Monthly:  yes
+    Seasonal: no
     ## Latitude range test
-    North:    42
-    South:    25
-    LatStep:   2
+    ## The boundaries are expected to be multiples of the step!!
+    North:      42
+    South:      22
+    LatStep:     2
+    MaxLatStep:  2  # used to limit the needed downloads
     ## Longitude range test
-    West:    -80
-    East:     25
-    LonStep:   5
+    ## The boundaries are expected to be multiples of the step!!
+    West:      -80
+    East:       25
+    LonStep:     5
+    MaxLonStep:  5  # used to limit the needed downloads
     # ## Latitude range DOMOS
     # North:    42
     # South:   -62
@@ -53,7 +82,7 @@ D1:
     # LonStep:    5
 
 
-##  Set the years to download  --------------------------------------
+##  Set the years to process  ---------------------------------------
 Range:
     start: 2020
     until: 2020
