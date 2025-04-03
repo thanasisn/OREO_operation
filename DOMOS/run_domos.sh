@@ -21,13 +21,27 @@ SCRIPT="$(basename "$0")"
 
 info() { echo ; echo "$(date +'%F %T') ::${SCRIPT}::${ID}:: $* ::" ; echo ; }
 
+notification() {
+  curl --silent --insecure --data chat_id=6849911952 --data disable_notification=false --data protect_content=false --data disable_web_page_preview=false --data text="$1
+$2" "https://api.telegram.org/bot7814434886:AAFQXk24RajNIwCNIT37DI38MSMqtKd0Cgw/sendMessage" >/dev/null; }
+
+end_status() {
+  STATUS=$1
+  NAME=$2
+  REST=($@)
+  if [ $STATUS == 0 ]; then
+    notification "end: $ID $NAME" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
+  else
+    notification "FAILED: $ID $NAME !!!" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
+  fi
+}
+
 echo ""
 echo "****    $(date +"%F %T") $USER@$HOSTNAME    ****"
 echo ""
 
 ## ignore errors
 set +e
-
 
 
 info "Activate Conda environment"
@@ -39,11 +53,15 @@ source /home/folder/miniconda/bin/activate && \
 export PYTHONUNBUFFERED=1
 
 info "Get raw data from ERA5"
+notification "start: Step_00_get_ERA5_data.py"
 ./Step_00_get_ERA5_data.py
+end_status $? "Step_00_get_ERA5_data.py"
 
 
 info "Do regrid on ERA5 data"
+notification "start: Step_01_regrid_ERA5.py"
 ./Step_01_regrid_ERA5.py
+end_status $? "Step_01_regrid_ERA5.py"
 
 
 info "Deactivate Conda environment"
