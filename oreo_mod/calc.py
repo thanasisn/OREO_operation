@@ -73,9 +73,11 @@ def border_up(target, step, limit):
     >>> border_up( 89, 5,  90)
     90
     """
-    res = target + step - target % step
+    res = target + target % step
     if not target * limit > 0:
         warnings.warn("Target coordinate and limit have different signs !!")
+    if not limit % step == 0:
+        sys.exit("Can not allow limit not to be multiple of the step !!")
     if res > limit:
         res = limit
     return res
@@ -114,9 +116,12 @@ def border_down(target, step, limit):
     res = target - target % step
     if not target * limit > 0:
         warnings.warn("Target coordinate and limit have different signs !!")
+    if not limit % step == 0:
+        sys.exit("Can not allow limit not to be multiple of the step !!")
     if res < limit:
         res = limit
     return res
+
 
 
 def height_bounds(heights, remove_bottom = 100, add_top = 1000, quiet = True):

@@ -29,8 +29,8 @@ ERA5:
     extra_height_at_top:       1000
     ## extend lower height by these meters to start the bottom cell
     extra_height_at_bottom:     100
-    ## which variable to use as wind {"mean", "median"}
-    data: "mean"
+    ## which variable to use as wind for step 2 {"mean", "median"}
+    data:                     "mean"
 
 
 ##  LIVAS lookup data  ----------------------------------------------
@@ -58,20 +58,20 @@ D0: "global"
 D1:
     name:    "Input domain"
     ## One aggregation scheme at a time
-    Monthly:  yes
-    Seasonal: no
+    Monthly:    no
+    Seasonal:  yes
     ## Latitude range test
     ## The boundaries are expected to be multiples of the step!!
-    North:      42
-    South:      22
+    North:      40
+    South:       0
     LatStep:     2
-    MaxLatStep:  2  # used to limit the needed downloads
+    MaxLatStep:  2  # used to reduce ERA5 downloads
     ## Longitude range test
     ## The boundaries are expected to be multiples of the step!!
-    West:      -80
-    East:       25
+    West:     -100
+    East:        0
     LonStep:     5
-    MaxLonStep:  5  # used to limit the needed downloads
+    MaxLonStep:  5  # used to reduce ERA5 downloads
     # ## Latitude range DOMOS
     # North:    42
     # South:   -62

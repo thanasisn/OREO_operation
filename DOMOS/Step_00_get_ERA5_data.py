@@ -38,7 +38,7 @@ cnf.D1.South = Oc.border_down(cnf.D1.South, cnf.D1.MaxLatStep,  -90)
 cnf.D1.East  = Oc.border_up(  cnf.D1.East,  cnf.D1.MaxLonStep,  180)
 cnf.D1.West  = Oc.border_down(cnf.D1.West,  cnf.D1.MaxLonStep, -180)
 
-print(f"Domain expanded according to resolution: {cnf.D1.North}N {cnf.D1.South}S {cnf.D1.West}W {cnf.D1.East}E")
+print(f"Domain expanded according to cell resolution, lat: [ {cnf.D1.South}, {cnf.D1.North} ], lon: [ {cnf.D1.West}, {cnf.D1.East} ]")
 
 ##  Start cds api client
 client = cdsapi.Client(quiet = QUIET)
