@@ -18,10 +18,13 @@ the moment.
 @author: proestakis, thanasisn
 """
 
+## TODO remove u_N and v_N from export at production
+
 import os
 import sys
 import re
 import glob
+import calendar
 from   datetime import datetime
 import netCDF4  as nc
 import numpy    as np
@@ -182,11 +185,11 @@ def regrid():
     ds.createDimension('time_span',      1)
 
     ##  Create variables data types
-    U_N        = ds.createVariable('u_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+    U_N        = ds.createVariable('u_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)  # will be removed
     U_SD       = ds.createVariable('u_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
     U_mean     = ds.createVariable('u_mean',    np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
     U_median   = ds.createVariable('u_median',  np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    V_N        = ds.createVariable('v_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
+    V_N        = ds.createVariable('v_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)  # will be removed
     V_SD       = ds.createVariable('v_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
     V_mean     = ds.createVariable('v_mean',    np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
     V_median   = ds.createVariable('v_median',  np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
@@ -215,11 +218,9 @@ def regrid():
     time_span.units  = 'month'
 
     ##  Set long name attribute
-    U_N.long_name        = 'U component of wind count'
     U_SD.long_name       = 'U SD component of wind'
     U_mean.long_name     = 'U mean component of wind'
     U_median.long_name   = 'U median component of wind'
-    V_N.long_name        = 'V component of wind count'
     V_SD.long_name       = 'V SD component of wind'
     V_mean.long_name     = 'V mean component of wind'
     V_median.long_name   = 'V median component of wind'
@@ -232,11 +233,9 @@ def regrid():
     time_span.long_name  = 'The time span of the aggregated data'
 
     ##  Set standard name attribute
-    U_N.standard_name        = 'eastward_wind_count'
     U_SD.standard_name       = 'eastward_wind_SD'
     U_mean.standard_name     = 'eastward_wind_mean'
     U_median.standard_name   = 'eastward_wind_median'
-    V_N.standard_name        = 'northward_wind_count'
     V_SD.standard_name       = 'northward_wind_SD'
     V_mean.standard_name     = 'northward_wind_mean'
     V_median.standard_name   = 'northward_wind_median'
@@ -249,11 +248,11 @@ def regrid():
     time_span.standard_name  = 'duration'
 
     ##  Assign arrays to datasets
-    U_N[:]        = u_total_N
+    U_N[:]        = u_total_N             # will be removed
     U_SD[:]       = u_total_SD
     U_mean[:]     = u_total_mean
     U_median[:]   = u_total_median
-    V_N[:]        = v_total_N
+    V_N[:]        = v_total_N             # will be removed
     V_SD[:]       = v_total_SD
     V_mean[:]     = v_total_mean
     V_median[:]   = v_total_median
@@ -268,6 +267,7 @@ def regrid():
     ##  Set global attributes
     my_attrs = dict(title     = "Regridded ERA5 data",
                     type      = data_type,
+                    season    = season,
                     details   = stats_message,
                     data_date = str(sesdate),
                     contacts  = cnf.OREO.contact_emails)
@@ -284,6 +284,7 @@ filesin_N = len(filenames)
 filesin_C = 0
 seaso_C = 0
 month_C = 0
+season  = " - "
 
 ##  Process raw ERA5 files  --------------------------------------------------
 for filein in filenames:
@@ -332,7 +333,7 @@ for filein in filenames:
         for season_idx, season in enumerate(seasons):
             ##  Output process info  -----------------------------------------
             seaso_C += 1
-            complete = 100 * (seaso_C - 1) / (filesin_N * 4)
+            complete = 100 * seaso_C / (filesin_N * 4)
             duration = datetime.now() - tic
             total    = duration * 100 / complete
             eta      = total - duration
@@ -403,12 +404,13 @@ for filein in filenames:
         for m in range(1, 13):
             ##  Output process info  -----------------------------------------
             month_C += 1
-            complete = 100 * (month_C - 1) / (filesin_N * 12)
+            complete = 100 * month_C / (filesin_N * 12)
             duration = datetime.now() - tic
             total    = duration * 100 / complete
             eta      = total - duration
             eda      = (datetime.now() + eta).replace(microsecond = 0)
             print(f"  {yyyy} M {m:02} {month_C}/{filesin_N*12} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
+            season   = calendar.month_name[m]
 
             ##  Create output file path  -------------------------------------
             fileout = os.path.join(
