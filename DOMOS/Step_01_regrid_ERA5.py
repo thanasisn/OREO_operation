@@ -46,11 +46,11 @@ cnf = Ou.get_configs(config_file)
 FORCE = cnf.mode.Force
 FORCE = True
 
-## export my each moth
+## export by each month
 MONTHLY  = False
 MONTHLY  = cnf.D1.Monthly
 
-## export be season
+## export by season of the year
 SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
@@ -208,9 +208,9 @@ def regrid():
     V_SD.units       = 'm s**-1'
     V_mean.units     = 'm s**-1'
     V_median.units   = 'm s**-1'
-    height.units     = 'km'  ## convertion at the final step
-    height_low.units = 'km'  ## convertion at the final step
-    height_up.units  = 'km'  ## convertion at the final step
+    height.units     = 'km'  ## conversion at the final step
+    height_low.units = 'km'  ## conversion at the final step
+    height_up.units  = 'km'  ## conversion at the final step
     lats.units       = 'degrees_north'
     lons.units       = 'degrees_east'
     time.calendar    = 'proleptic_gregorian'
@@ -324,7 +324,7 @@ for filein in filenames:
 
     ##  Export with seasonal aggregation  ------------------------------------
     if SEASONAL:
-        stats_message  = "Statistical values (mean, median, SD and N) refer to the seasonal values of 3 calendar months, with the approximate center the day of 'time' variable."
+        stats_message  = "Statistical values (mean, median, SD and N) refer to the seasonal values of 3 calendar months, with the approximate centre the day of 'time' variable."
         stats_duration = 3
         data_type      = "Seasonal"
 
