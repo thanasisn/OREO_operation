@@ -53,13 +53,13 @@ source /home/folder/miniconda/bin/activate && \
 export PYTHONUNBUFFERED=1
 
 info "Get raw data from ERA5"
-notification "start: Step_00_get_ERA5_data.py"
+notification "start: $ID Step_00_get_ERA5_data.py"
 ./Step_00_get_ERA5_data.py
 end_status $? "Step_00_get_ERA5_data.py"
 
 
-info "Do regrid on ERA5 data"
-notification "start: Step_01_regrid_ERA5.py"
+info "Regrid of ERA5 data"
+notification "start: $ID Step_01_regrid_ERA5.py"
 ./Step_01_regrid_ERA5.py
 end_status $? "Step_01_regrid_ERA5.py"
 
