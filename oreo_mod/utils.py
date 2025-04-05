@@ -44,7 +44,7 @@ def size_to_human(num, suffix="B"):
     return f"{num:.1f} Yi{suffix}"
 
 
-def true_if_file_exist(file, quiet=False):
+def true_if_file_exist(file, quiet = False):
     """
     Skip current iteration if file already exist
     """
@@ -58,7 +58,7 @@ def true_if_file_exist(file, quiet=False):
     return False
 
 
-def output_needs_update(filein, fileout, quiet=False, minsize=5):
+def output_needs_update(filein, fileout, quiet = False, minsize = 5):
     """
     Check if we have to produce a new file if the source
     file is older or the new file is empty.
@@ -78,6 +78,9 @@ def output_needs_update(filein, fileout, quiet=False, minsize=5):
     #  can not resolve missing input file
     if not os.path.isfile(filein):
         sys.exit(f"Input file {filein} does not exist!")
+    #  output file do not exist
+    if not os.path.exists(fileout):
+        return True
     #  output file is almost empty
     if os.path.getsize(fileout) < minsize:
         if not quiet:

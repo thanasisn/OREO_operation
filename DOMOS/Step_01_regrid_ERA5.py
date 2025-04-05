@@ -44,7 +44,6 @@ cnf = Ou.get_configs(config_file)
 
 ## overwrite output files
 FORCE = cnf.mode.Force
-FORCE = True
 
 ## export by each month
 MONTHLY  = False
@@ -113,17 +112,17 @@ def regrid():
     ##  Iterative calculations  ----------------------------------------------
 
     ##  Init target arrays
-    height_lower   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    height_mean    = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    height_upper   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    u_total_N      = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    u_total_SD     = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    u_total_mean   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    u_total_median = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    v_total_N      = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    v_total_SD     = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    v_total_mean   = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
-    v_total_median = np.empty((len(DTses.pressure_level), len(REGRID_lon_centers), len(REGRID_lat_centers)))
+    height_lower   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    height_mean    = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    height_upper   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    u_total_N      = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    u_total_SD     = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    u_total_mean   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    u_total_median = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    v_total_N      = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    v_total_SD     = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    v_total_mean   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    v_total_median = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
 
     ##  Compute stats in each cell  ------------------------------------------
     for ilon, lon in enumerate(REGRID_lon_centers):
@@ -142,25 +141,25 @@ def regrid():
                 cell.coords
 
                 ## gather all statistics for each cell
-                u_total_mean  [klev, ilon, jlat] = np.mean(                   cell.u.values)
-                u_total_median[klev, ilon, jlat] = np.median(                 cell.u.values)
-                u_total_SD    [klev, ilon, jlat] = np.std(                    cell.u.values)
-                u_total_N     [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.u.values))
-                v_total_mean  [klev, ilon, jlat] = np.mean(                   cell.v.values)
-                v_total_median[klev, ilon, jlat] = np.median(                 cell.v.values)
-                v_total_SD    [klev, ilon, jlat] = np.std(                    cell.v.values)
-                v_total_N     [klev, ilon, jlat] = np.count_nonzero(~np.isnan(cell.v.values))
-                height_mean   [klev, ilon, jlat] = np.mean(                   cell.height.values)
+                u_total_mean  [ilon, jlat, klev] = np.mean(                   cell.u.values)
+                u_total_median[ilon, jlat, klev] = np.median(                 cell.u.values)
+                u_total_SD    [ilon, jlat, klev] = np.std(                    cell.u.values)
+                u_total_N     [ilon, jlat, klev] = np.count_nonzero(~np.isnan(cell.u.values))
+                v_total_mean  [ilon, jlat, klev] = np.mean(                   cell.v.values)
+                v_total_median[ilon, jlat, klev] = np.median(                 cell.v.values)
+                v_total_SD    [ilon, jlat, klev] = np.std(                    cell.v.values)
+                v_total_N     [ilon, jlat, klev] = np.count_nonzero(~np.isnan(cell.v.values))
+                height_mean   [ilon, jlat, klev] = np.mean(                   cell.height.values)
 
             ##  Create height bounds  ----------------------------------------
             ##  We assume the sort is always correct
-            if not (np.diff(height_mean[:, ilon, jlat]) > 0).all():
+            if not (np.diff(height_mean[ilon, jlat, :]) > 0).all():
                 sys.exit("Descending heights")
 
             ##  Assign boundaries to array
-            H, height_lower[:, ilon, jlat], height_upper[:, ilon, jlat] = \
+            H, height_lower[ilon, jlat, :], height_upper[ilon, jlat, :] = \
                 Oc.height_bounds(
-                    heights       = height_mean[:, ilon, jlat],
+                    heights       = height_mean[ilon, jlat, :],
                     remove_bottom = cnf.ERA5.extra_height_at_bottom,
                     add_top       = cnf.ERA5.extra_height_at_top,
                     quiet         = True)
@@ -185,17 +184,17 @@ def regrid():
     ds.createDimension('time_span',      1)
 
     ##  Create variables data types
-    U_N        = ds.createVariable('u_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)  # will be removed
-    U_SD       = ds.createVariable('u_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    U_mean     = ds.createVariable('u_mean',    np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    U_median   = ds.createVariable('u_median',  np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    V_N        = ds.createVariable('v_N',       np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)  # will be removed
-    V_SD       = ds.createVariable('v_SD',      np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    V_mean     = ds.createVariable('v_mean',    np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    V_median   = ds.createVariable('v_median',  np.float64, ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    height     = ds.createVariable('height',          'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    height_low = ds.createVariable('height_low',      'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
-    height_up  = ds.createVariable('height_up',       'f4', ('pressure_level', 'longitude', 'latitude',), zlib=True)
+    U_N        = ds.createVariable('u_N',       np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)  # will be removed
+    U_SD       = ds.createVariable('u_SD',      np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    U_mean     = ds.createVariable('u_mean',    np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    U_median   = ds.createVariable('u_median',  np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    V_N        = ds.createVariable('v_N',       np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)  # will be removed
+    V_SD       = ds.createVariable('v_SD',      np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    V_mean     = ds.createVariable('v_mean',    np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    V_median   = ds.createVariable('v_median',  np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    height     = ds.createVariable('height',          'f4', ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    height_low = ds.createVariable('height_low',      'f4', ('longitude', 'latitude', 'pressure_level', ), zlib=True)
+    height_up  = ds.createVariable('height_up',       'f4', ('longitude', 'latitude', 'pressure_level', ), zlib=True)
     lats       = ds.createVariable('latitude',        'f4', ('latitude', ), zlib=True)
     lons       = ds.createVariable('longitude',       'f4', ('longitude',), zlib=True)
     time       = ds.createVariable('time',      np.float64, ('time',))
