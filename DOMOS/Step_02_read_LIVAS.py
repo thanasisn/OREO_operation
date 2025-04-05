@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Establishes the required EO-and-ERA5 DOMOS dataset in the same L3 1x1 grid resolution and monthly-mean.
@@ -35,13 +36,17 @@ cnf = Ou.get_configs(config_file)
 FORCE = cnf.mode.Force
 FORCE = True
 
-##  Export my each month
+##  Export by each month
 MONTHLY  = False
 MONTHLY  = cnf.D1.Monthly
 
 ##  Export by season
 SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
+
+##  Reduce work for testing
+TEST = False
+TEST = cnf.mode.Test
 
 
 ##  Allow only one case to run at the time  ----------------------------------
@@ -90,13 +95,17 @@ elif cnf.ERA5.data == "median":
 LIVAS_all_lats = np.arange( -89.5,  90)
 LIVAS_all_lons = np.arange(-179.5, 180)
 
-##  Directory path of output datasets
+##  Directory path of output datasets  ----------------------------------
 output_path    = os.path.join(cnf.OREO.path_output, os.path.basename(os.path.dirname(ERA_filenames[0])))
 os.makedirs(output_path, exist_ok = True)
 
 
-for ERA_file in ERA_filenames:
-    print(f"\nProcessing: {ERA_file}")
+
+## !!!
+if TEST: ERA_filenames = [ERA_filenames[0]]
+
+for efid, ERA_file in enumerate(ERA_filenames):
+    print(f"\nProcessing: {efid}/{len(ERA_filenames)} {ERA_file}")
 
     ##  Load ERA5 data  ------------------------------------------------------
     ERA           = xr.open_dataset(ERA_file)
@@ -107,12 +116,12 @@ for ERA_file in ERA_filenames:
     ERA_Height       = ERA_dataset['height'][:]
     ERA_Latitude     = ERA_dataset['latitude'][:]
     ERA_Longitude    = ERA_dataset['longitude'][:]
-    ERA_U            = ERA_dataset[ U ][:]
-    ERA_U_SD         = ERA_dataset['u_SD'][:]
-    ERA_V            = ERA_dataset[ V ][:]
-    ERA_V_SD         = ERA_dataset['u_SD'][:]
-    ERA_Height_upper = ERA.height_up.values
-    ERA_Height_lower = ERA.height_low.values
+    # ERA_U            = ERA_dataset[ U ][:]
+    # ERA_U_SD         = ERA_dataset['u_SD'][:]
+    # ERA_V            = ERA_dataset[ V ][:]
+    # ERA_V_SD         = ERA_dataset['u_SD'][:]
+    # ERA_Height_upper = ERA.height_up.values
+    # ERA_Height_lower = ERA.height_low.values
 
     ## TODO use to resolve logic
     ERA.season
@@ -142,6 +151,15 @@ for ERA_file in ERA_filenames:
                            os.path.basename(ERA_file).replace("ERA5", "ERA5_LIVAS"))
     xfileout = os.path.join(output_path,
                        os.path.basename(ERA_file).replace("ERA5", "XERA5_LIVAS"))
+
+    ## !!!
+    if TEST:
+        fileout  = fileout.replace(".nc", "_TEST.nc")
+        xfileout = xfileout.replace(".nc", "_TEST.nc")
+        ## do just a part of the ERA file
+        ERA_Longitude = ERA_Longitude[0:2]
+        ERA_Latitude  = ERA_Latitude [0:3]
+
 
     ## skip already existing files
     if (not FORCE) and (not Ou.output_needs_update(ERA_file, fileout)):
@@ -210,17 +228,17 @@ for ERA_file in ERA_filenames:
     Empty_Vertical_array    = np.empty(cnf.LIVAS.levels)
     Empty_Vertical_array[:] = np.nan
 
-    len(ERA_Latitude)
-    len(ERA_Longitude)
 
+    ## TODO use product
     coords = np.array(np.meshgrid(ERA_Latitude, ERA_Longitude)).T.reshape(-1,2)
     len(coords)
 
-    for lat, lon in coords:
-        print(lat, lon)
+    # for lat, lon in coords:
+    #     print(lat, lon)
 
-    for count_lon, lon in enumerate(ERA_Longitude):
-        for count_lat, lat in enumerate(ERA_Latitude):
+
+    for lon_id, lon in enumerate(ERA_Longitude):
+        for lat_id, lat in enumerate(ERA_Latitude):
 
             ##  create list of all LIVAS coords to use for this cell
             Llats = LIVAS_all_lats[np.logical_and(
@@ -236,14 +254,9 @@ for ERA_file in ERA_filenames:
             ##  expand all combinations of LIVAS coordinates
             comb = np.array(np.meshgrid(Llats, Llons)).T.reshape(-1,2)
 
-            print("ERA5 center:", lat, lon)
-            print("LIVAS lats: ", Llats)
-            print("LIVAS lons: ", Llons)
 
-
-
-            idx_lat = count_lat
-            idx_lon = count_lon
+            # print("LIVAS lats: ", Llats)
+            # print("LIVAS lons: ", Llons)
 
             ######################
             ###     LIVAS      ###
@@ -251,12 +264,22 @@ for ERA_file in ERA_filenames:
 
             # TODO read Lidar ratio form LIVAS
 
+            ## !!!
+            if TEST: comb = comb[0:4]
+
             ##  Read a LIVAS file  -------------------------------------------
             file_counter = 0
             for LIVAS_lat, LIVAS_lon in comb:
-                print("LAT:", LIVAS_lat, "LON:", LIVAS_lon)
 
-                LIVAS_file     = os.path.join(
+                ec_c = lon_id + lat_id + 2
+                ec_t = len(ERA_Longitude) * len(ERA_Latitude)
+                li_c = file_counter + 1
+                li_t = comb.shape[0]
+
+                print(f"{efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}] ")
+
+                ##  File to read  -------------------------------------
+                LIVAS_file = os.path.join(
                     cnf.LIVAS.path_lookup,
                     f'LIVAS_CALIPSO_L2_Grid_lon_c_{str(LIVAS_lon)}_lat_c_{str(LIVAS_lat)}.nc')
 
@@ -269,14 +292,8 @@ for ERA_file in ERA_filenames:
                     else:
                         sys.exit(amsg)
 
-                # print(LIVAS_file)
                 LIVAS_dataset = nc.Dataset(LIVAS_file)
                 LIVAS         = xr.open_datatree(LIVAS_file)
-
-                ERA_year
-                ERA_month - 1
-                ERA_month + 1
-
 
                 # Profile_Time_Parsed = LIVAS_dataset['/Profile_Time_Parsed'][:]
                 # Months              = np.empty((len(Profile_Time_Parsed)))
@@ -313,8 +330,8 @@ for ERA_file in ERA_filenames:
                 id_date_range = (pd.DatetimeIndex(LIVAS.Profile_Time_Parsed).year.isin(  YoI ) &
                                  pd.DatetimeIndex(LIVAS.Profile_Time_Parsed).month.isin( MoI ) )
 
-                print(f"LIVAS date range: {LIVAS.Profile_Time_Parsed[id_date_range].min().values} -- {LIVAS.Profile_Time_Parsed[id_date_range].max().values}")
-                print(f"Count: {(id_date_range).sum()}")
+                print(f"    LIVAS date range: {LIVAS.Profile_Time_Parsed[id_date_range].min().values} -- {LIVAS.Profile_Time_Parsed[id_date_range].max().values}")
+                print(f"    Count: {(id_date_range).sum()}")
 
                 ##  Skip files without data to use
                 if (id_date_range).sum() == 0:
@@ -323,6 +340,8 @@ for ERA_file in ERA_filenames:
 
                 ##  Get data selection from LIVAS
                 xAltitude        = LIVAS.Altitude
+
+
                 xLIVAS_PD_b532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Backscatter_Coefficient_532.sel(
                     profile = id_date_range)
 
@@ -356,7 +375,7 @@ for ERA_file in ERA_filenames:
 
 
                 if file_counter == 0:
-                    # print("INIT")
+                    # print("    INIT")
                     Total_LIVAS_PD_a532nm = LIVAS_PD_a532nm
                     Total_LIVAS_PD_MC     = LIVAS_PD_MC
                     Total_IGBP            = IGBP
@@ -367,7 +386,7 @@ for ERA_file in ERA_filenames:
                     xTotal_LIVAS_LR_Dust   = xLIVAS_LR_Dust
 
                 else:
-                    # print("STACK")
+                    # print("    STACK")
                     Total_LIVAS_PD_a532nm = np.vstack([LIVAS_PD_a532nm, Total_LIVAS_PD_a532nm])
                     Total_LIVAS_PD_MC     = np.vstack([LIVAS_PD_MC,     Total_LIVAS_PD_MC])
                     Total_IGBP            = np.hstack([Total_IGBP,      IGBP])
@@ -411,34 +430,34 @@ for ERA_file in ERA_filenames:
             DOD_532nm_SD    = np.trapezoid(Altitude, arr)
 
             for count_alt in range(cnf.LIVAS.levels):
-                Final_PD_MC[idx_lon,    idx_lat, count_alt]    = PD_MC[count_alt]
-                Final_PD_MC_SD[idx_lon, idx_lat, count_alt]    = PD_MC_SD[count_alt]
+                Final_PD_MC[   lon_id, lat_id, count_alt]    = PD_MC   [count_alt]
+                Final_PD_MC_SD[lon_id, lat_id, count_alt]    = PD_MC_SD[count_alt]
                 Final_PD_a532nm                              = PD_a532nm[count_alt]
                 Final_PD_a532nm_SD                           = PD_a532nm_SD[count_alt]
 
-            Final_LIVAS_PD_DOD_532nm[idx_lon,idx_lat]     = DOD_532nm
-            Final_LIVAS_PD_DOD_532nm_SD[idx_lon,idx_lat]  = DOD_532nm_SD
-            Percentage_IGBP_1[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  1)),float(len(IGBP))))*100.0
-            Percentage_IGBP_2[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  2)),float(len(IGBP))))*100.0
-            Percentage_IGBP_3[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  3)),float(len(IGBP))))*100.0
-            Percentage_IGBP_4[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  4)),float(len(IGBP))))*100.0
-            Percentage_IGBP_5[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  5)),float(len(IGBP))))*100.0
-            Percentage_IGBP_6[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  6)),float(len(IGBP))))*100.0
-            Percentage_IGBP_7[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  7)),float(len(IGBP))))*100.0
-            Percentage_IGBP_8[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  8)),float(len(IGBP))))*100.0
-            Percentage_IGBP_9[idx_lon,idx_lat]  = (np.divide(float(np.count_nonzero(IGBP ==  9)),float(len(IGBP))))*100.0
-            Percentage_IGBP_10[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 10)),float(len(IGBP))))*100.0
-            Percentage_IGBP_11[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 11)),float(len(IGBP))))*100.0
-            Percentage_IGBP_12[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 12)),float(len(IGBP))))*100.0
-            Percentage_IGBP_13[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 13)),float(len(IGBP))))*100.0
-            Percentage_IGBP_14[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 14)),float(len(IGBP))))*100.0
-            Percentage_IGBP_15[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 15)),float(len(IGBP))))*100.0
-            Percentage_IGBP_16[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 16)),float(len(IGBP))))*100.0
-            Percentage_IGBP_17[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 17)),float(len(IGBP))))*100.0
-            Percentage_IGBP_18[idx_lon,idx_lat] = (np.divide(float(np.count_nonzero(IGBP == 18)),float(len(IGBP))))*100.0
+            Final_LIVAS_PD_DOD_532nm[lon_id,lat_id]     = DOD_532nm
+            Final_LIVAS_PD_DOD_532nm_SD[lon_id,lat_id]  = DOD_532nm_SD
+            Percentage_IGBP_1[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  1)),float(len(IGBP))))*100.0
+            Percentage_IGBP_2[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  2)),float(len(IGBP))))*100.0
+            Percentage_IGBP_3[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  3)),float(len(IGBP))))*100.0
+            Percentage_IGBP_4[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  4)),float(len(IGBP))))*100.0
+            Percentage_IGBP_5[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  5)),float(len(IGBP))))*100.0
+            Percentage_IGBP_6[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  6)),float(len(IGBP))))*100.0
+            Percentage_IGBP_7[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  7)),float(len(IGBP))))*100.0
+            Percentage_IGBP_8[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  8)),float(len(IGBP))))*100.0
+            Percentage_IGBP_9[lon_id,lat_id]  = (np.divide(float(np.count_nonzero(IGBP ==  9)),float(len(IGBP))))*100.0
+            Percentage_IGBP_10[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 10)),float(len(IGBP))))*100.0
+            Percentage_IGBP_11[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 11)),float(len(IGBP))))*100.0
+            Percentage_IGBP_12[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 12)),float(len(IGBP))))*100.0
+            Percentage_IGBP_13[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 13)),float(len(IGBP))))*100.0
+            Percentage_IGBP_14[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 14)),float(len(IGBP))))*100.0
+            Percentage_IGBP_15[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 15)),float(len(IGBP))))*100.0
+            Percentage_IGBP_16[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 16)),float(len(IGBP))))*100.0
+            Percentage_IGBP_17[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 17)),float(len(IGBP))))*100.0
+            Percentage_IGBP_18[lon_id,lat_id] = (np.divide(float(np.count_nonzero(IGBP == 18)),float(len(IGBP))))*100.0
 
-            Final_Number_of_Profiles[  idx_lon,idx_lat]   = Number_of_Profiles
-            Final_Number_of_L2Profiles[idx_lon,idx_lat] = L2_CF_profiles
+            Final_Number_of_Profiles[  lon_id, lat_id] = Number_of_Profiles
+            Final_Number_of_L2Profiles[lon_id, lat_id] = L2_CF_profiles
 
             # sys.exit("wait")
 
@@ -449,23 +468,22 @@ for ERA_file in ERA_filenames:
     #  --- Saving dataset as NetCDF --- #
     #####################################
 
+    ## !!! why to m
     Altitude = Altitude*1000.0
 
     # creating nc. filename and initiallizing:
     ds           = nc.Dataset(fileout, 'w', format='NETCDF4')
 
     # create nc. dimensions:
-    longitude    = ERA_Longitude
-    latitude     = ERA_Latitude
-    ERA_lev      = ds.createDimension('ERA_lev',     ERA_Height.shape[2])
-    # CAMS_lev     = ds.createDimension('CAMS_lev',    CAMS_Height.shape[2])
-    CALIPSO_lev  = ds.createDimension('CALIPSO_lev', len(Altitude))
-    lat          = ds.createDimension('lat',         len(ERA_Latitude))
-    lon          = ds.createDimension('lon',         len(ERA_Longitude))
+    # longitude    = ERA_Longitude
+    # latitude     = ERA_Latitude
+    ds.createDimension('ERA_lev',     ERA.pressure_level.shape[0])
+    ds.createDimension('CALIPSO_lev', len(Altitude))
+    ds.createDimension('lat',         len(ERA_Latitude))
+    ds.createDimension('lon',         len(ERA_Longitude))
 
     Geolocation_group     = ds.createGroup("Geolocation")
     ERA5_group            = ds.createGroup("ERA5")
-    CAMS_group            = ds.createGroup("CAMS")
     LIVAS_group           = ds.createGroup("LIVAS")
     Land_Ocean_Mask_group = ds.createGroup("Land_Ocean_Mask")
 
@@ -473,14 +491,13 @@ for ERA_file in ERA_filenames:
     lats_id                   = ds.createVariable('Geolocation/Latitude', 'f4', ('lat',))
     lons_id                   = ds.createVariable('Geolocation/Longitude','f4', ('lon',))
 
-    ERA_Height_id             = ds.createVariable('ERA5/ERA5_Height', 'f4', ('lon','lat','ERA_lev',))
-    ERA_U_id                  = ds.createVariable('ERA5/U',    np.float64, ('lon','lat','ERA_lev',))
-    ERA_U_SD_id               = ds.createVariable('ERA5/U_SD', np.float64, ('lon','lat','ERA_lev',))
-    ERA_V_id                  = ds.createVariable('ERA5/V',    np.float64, ('lon','lat','ERA_lev',))
-    ERA_V_SD_id               = ds.createVariable('ERA5/V_SD', np.float64, ('lon','lat','ERA_lev',))
-
-    CAMS_Height_id            = ds.createVariable('CAMS/CAMS_Height', 'f4',     ('lon','lat','CAMS_lev',))
-    CAMS_MC_id                = ds.createVariable('CAMS/CAMS_Dust_MC',    np.float64, ('lon','lat','CAMS_lev',))
+    ERA_Height_id             = ds.createVariable('ERA5/ERA5_Height', np.float64, ('lon','lat','ERA_lev',))
+    ERA_U_id                  = ds.createVariable('ERA5/U',           np.float64, ('lon','lat','ERA_lev',))
+    ERA_U_SD_id               = ds.createVariable('ERA5/U_SD',        np.float64, ('lon','lat','ERA_lev',))
+    ERA_V_id                  = ds.createVariable('ERA5/V',           np.float64, ('lon','lat','ERA_lev',))
+    ERA_V_SD_id               = ds.createVariable('ERA5/V_SD',        np.float64, ('lon','lat','ERA_lev',))
+    ERA_height_low_id         = ds.createVariable('ERA5/height_low',  np.float64, ('lon','lat','ERA_lev',), zlib=True)
+    ERA_height_up_id          = ds.createVariable('ERA5/height_up',   np.float64, ('lon','lat','ERA_lev',), zlib=True)
 
     LIVAS_Altitude_id         = ds.createVariable('LIVAS/Altitude',                                        'f4',        ('CALIPSO_lev',),zlib=True)
     LIVAS_a532nm_PD_id        = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_a532nm',           np.float64,  ('lon','lat','CALIPSO_lev',),zlib=True)
@@ -518,13 +535,13 @@ for ERA_file in ERA_filenames:
 
     lats_id.units                   = 'degrees_north'
     lons_id.units                   = 'degrees_east'
-    ERA_Height_id.units             = 'm'
+    ERA_Height_id.units             = 'km'
+    ERA_height_low_id.units         = 'km'
+    ERA_height_up_id.units          = 'km'
     ERA_U_id.units                  = 'm s**-1'
     ERA_U_SD_id.units               = 'm s**-1'
     ERA_V_id.units                  = 'm s**-1'
     ERA_V_SD_id.units               = 'm s**-1'
-    CAMS_Height_id.units            = 'm'
-    CAMS_MC_id.units                = 'micrograms/m^3'
     LIVAS_Altitude_id.units         = 'm'
     LIVAS_a532nm_PD_id.units        = 'km-1'
     LIVAS_a532nm_PD_SD_id.units     = 'km-1'
@@ -561,12 +578,13 @@ for ERA_file in ERA_filenames:
     lats_id.long_name                   = 'Latitude'
     lons_id.long_name                   = 'Longitude'
     ERA_Height_id.long_name             = 'Height'
+    ERA_height_low_id.long_name         = 'Height of lower cell boundary'
+    ERA_height_up_id.long_name          = 'Height of upper cell boundary'
     ERA_U_id.long_name                  = 'U component of wind'
     ERA_U_SD_id.long_name               = 'U component of wind SD'
     ERA_V_id.long_name                  = 'V component of wind'
     ERA_V_SD_id.long_name               = 'V component of wind SD'
-    CAMS_Height_id.long_name            = 'Height'
-    CAMS_MC_id.long_name                = 'CAMS Pure-Dust Mass Concentration'
+
     LIVAS_Altitude_id.long_name         = 'Height'
     LIVAS_a532nm_PD_id.units            = 'Pure-Dust Extinction Coefficient 532nm'
     LIVAS_a532nm_PD_SD_id.units         = 'Pure-Dust Extinction Coefficient 532nm - SD'
@@ -601,13 +619,15 @@ for ERA_file in ERA_filenames:
 
     lats_id.fill_value                   = np.nan
     lons_id.fill_value                   = np.nan
+
     ERA_Height_id.fill_value             = np.nan
+    ERA_height_low_id.fill_value         = np.nan
+    ERA_height_up_id.fill_value          = np.nan
     ERA_U_id.fill_value                  = np.nan
     ERA_U_SD_id.fill_value               = np.nan
     ERA_V_id.fill_value                  = np.nan
     ERA_V_SD_id.fill_value               = np.nan
-    CAMS_Height_id.fill_value            = np.nan
-    CAMS_MC_id.fill_value                = np.nan
+
     LIVAS_Altitude_id.fill_value         = np.nan
     LIVAS_a532nm_PD_id.fill_value        = np.nan
     LIVAS_a532nm_PD_SD_id.fill_value     = np.nan
@@ -640,46 +660,57 @@ for ERA_file in ERA_filenames:
     Percentage_IGBP_17_id.fill_value     = np.nan
     Percentage_IGBP_18_id.fill_value     = np.nan
 
+
     lats_id[:]                   = ERA_Latitude
     lons_id[:]                   = ERA_Longitude
-    ERA_Height_id[:]             = ERA_Height
-    ERA_U_id[:]                  = ERA_U
-    ERA_U_SD_id[:]               = ERA_U_SD
-    ERA_V_id[:]                  = ERA_V
-    ERA_V_SD_id[:]               = ERA_V_SD
-    # CAMS_Height_id[:]            = CAMS_Height
-    # CAMS_MC_id[:]                = CAMS_Dust_MC
+
+    ERA_Height_id[:]             = ERA.height.sel(latitude  = ERA_Latitude,
+                                                  longitude = ERA_Longitude)
+    ERA_U_id[:]                  = ERA[ U ].sel(latitude  = ERA_Latitude,
+                                                longitude = ERA_Longitude)
+    ERA_U_SD_id[:]               = ERA.u_SD.sel(latitude  = ERA_Latitude,
+                                                longitude = ERA_Longitude)
+    ERA_V_id[:]                  = ERA[ V ].sel(latitude  = ERA_Latitude,
+                                                longitude = ERA_Longitude)
+    ERA_V_SD_id[:]               = ERA.v_SD.sel(latitude  = ERA_Latitude,
+                                                longitude = ERA_Longitude)
+    ERA_height_low_id[:]          = ERA.height_low.sel(latitude  = ERA_Latitude,
+                                                       longitude = ERA_Longitude)
+    ERA_height_up_id[:]          = ERA.height_up.sel(latitude  = ERA_Latitude,
+                                                      longitude = ERA_Longitude)
+
+
+    # ERA_U_id[:]                  = ERA_U
+    # ERA_U_SD_id[:]               = ERA_U_SD
+    # ERA_V_id[:]                  = ERA_V
+    # ERA_V_SD_id[:]               = ERA_V_SD
     LIVAS_Altitude_id[:]         = Altitude
     LIVAS_a532nm_PD_id[:]        = Final_PD_a532nm
     LIVAS_a532nm_PD_SD_id[:]     = Final_PD_a532nm_SD
     LIVAS_PD_MC_id[:]            = Final_PD_MC
     LIVAS_PD_MC_SD_id[:]         = Final_PD_MC_SD
-    # LIVAS_PD_MC_CM_id[:]         = Final_PD_MC_CM
-    # LIVAS_PD_MC_CM_SD_id[:]      = Final_PD_MC_CM_SD
-    # LIVAS_PD_MC_FM_id[:]         = Final_PD_MC_FM
-    # LIVAS_PD_MC_FM_SD_id[:]      = Final_PD_MC_FM_SD
     LIVAS_N_of_CF_Profiles_id[:] = Final_Number_of_L2Profiles
     LIVAS_N_of_Profiles_id[:]    = Final_Number_of_Profiles
     LIVAS_DOD_532nm_mean[:]      = Final_LIVAS_PD_DOD_532nm
     LIVAS_DOD_532nm_SD[:]        = Final_LIVAS_PD_DOD_532nm_SD
-    Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
-    Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
-    Percentage_IGBP_3_id[:]      = Percentage_IGBP_3
-    Percentage_IGBP_4_id[:]      = Percentage_IGBP_4
-    Percentage_IGBP_5_id[:]      = Percentage_IGBP_5
-    Percentage_IGBP_6_id[:]      = Percentage_IGBP_6
-    Percentage_IGBP_7_id[:]      = Percentage_IGBP_7
-    Percentage_IGBP_8_id[:]      = Percentage_IGBP_8
-    Percentage_IGBP_9_id[:]      = Percentage_IGBP_9
-    Percentage_IGBP_10_id[:]     = Percentage_IGBP_10
-    Percentage_IGBP_11_id[:]     = Percentage_IGBP_11
-    Percentage_IGBP_12_id[:]     = Percentage_IGBP_12
-    Percentage_IGBP_13_id[:]     = Percentage_IGBP_13
-    Percentage_IGBP_14_id[:]     = Percentage_IGBP_14
-    Percentage_IGBP_15_id[:]     = Percentage_IGBP_15
-    Percentage_IGBP_16_id[:]     = Percentage_IGBP_16
-    Percentage_IGBP_17_id[:]     = Percentage_IGBP_17
-    Percentage_IGBP_18_id[:]     = Percentage_IGBP_18
+    # Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
+    # Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
+    # Percentage_IGBP_3_id[:]      = Percentage_IGBP_3
+    # Percentage_IGBP_4_id[:]      = Percentage_IGBP_4
+    # Percentage_IGBP_5_id[:]      = Percentage_IGBP_5
+    # Percentage_IGBP_6_id[:]      = Percentage_IGBP_6
+    # Percentage_IGBP_7_id[:]      = Percentage_IGBP_7
+    # Percentage_IGBP_8_id[:]      = Percentage_IGBP_8
+    # Percentage_IGBP_9_id[:]      = Percentage_IGBP_9
+    # Percentage_IGBP_10_id[:]     = Percentage_IGBP_10
+    # Percentage_IGBP_11_id[:]     = Percentage_IGBP_11
+    # Percentage_IGBP_12_id[:]     = Percentage_IGBP_12
+    # Percentage_IGBP_13_id[:]     = Percentage_IGBP_13
+    # Percentage_IGBP_14_id[:]     = Percentage_IGBP_14
+    # Percentage_IGBP_15_id[:]     = Percentage_IGBP_15
+    # Percentage_IGBP_16_id[:]     = Percentage_IGBP_16
+    # Percentage_IGBP_17_id[:]     = Percentage_IGBP_17
+    # Percentage_IGBP_18_id[:]     = Percentage_IGBP_18
 
     ##  Set global attributes
     my_attrs = dict(title     = "Regridded ERA5 data with LIVAS lookup data",
@@ -691,9 +722,10 @@ for ERA_file in ERA_filenames:
     for name, value in my_attrs.items():
         setattr(ds, name, value)
 
-
     ds.close()
+
     print(f"Written: {fileout}")
+
     sys.exit("Good")
 
 

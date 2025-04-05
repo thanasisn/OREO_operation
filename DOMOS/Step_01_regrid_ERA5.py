@@ -174,7 +174,7 @@ def regrid():
     # print(f"Written: {fileout}")
 
     ##  Numpy array export  --------------------------------------------------
-    ds = nc.Dataset(fileout, 'w', format='NETCDF4')
+    ds = nc.Dataset(fileout, 'w', format = 'NETCDF4')
 
     ##  Define coordinates
     ds.createDimension('latitude',       len(REGRID_lat_centers))

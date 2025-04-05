@@ -64,6 +64,12 @@ notification "start: $ID Step_01_regrid_ERA5.py"
 end_status $? "Step_01_regrid_ERA5.py"
 
 
+info "Merge ERA with LIVAS"
+notification "start: $ID Step_02_read_LIVAS.py"
+./Step_02_read_LIVAS.py
+end_status $? "Step_02_read_LIVAS.py"
+
+
 info "Deactivate Conda environment"
 conda deactivate
 
