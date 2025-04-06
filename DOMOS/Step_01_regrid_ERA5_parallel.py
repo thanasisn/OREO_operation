@@ -29,7 +29,7 @@ from   datetime import datetime
 import netCDF4  as nc
 import numpy    as np
 import xarray   as xr
-
+from multiprocessing import Pool
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -285,11 +285,9 @@ filesin_N = len(filenames)
 filesin_C = 0
 seaso_C = 0
 month_C = 0
-season  = " - "
 
 
-##  Process raw ERA5 files  --------------------------------------------------
-for filein in filenames:
+def process_ERA5_file(filein):
     yyyy = int(re.compile('ERA5_([0-9]*)_.*.nc').search(filein).group(1))
 
     ##  Create output folders  -----------------------------------------------
@@ -300,10 +298,11 @@ for filein in filenames:
 
     ##  Limit data time range
     if not cnf.Range.start <= yyyy <= cnf.Range.until:
-        continue
+        return "skip year"
 
-    filesin_C += 1  ## process counter
-    print(f"\nProcessing {filesin_C}/{filesin_N}: {filein}")
+    # filesin_C += 1  ## process counter
+    # print(f"\nProcessing {filesin_C}/{filesin_N}: {filein}")
+    print(f"\nProcessing {filein}")
 
     ##  load ERA5 main file on a xarray
     DT = xr.open_dataset(filein)
@@ -311,18 +310,6 @@ for filein in filenames:
     ##  Get ERA5 spatial step
     lat_res = np.unique(np.diff(DT.latitude.values))[0]
     lon_res = np.unique(np.diff(DT.longitude.values))[0]
-
-    ## apply a domain constrains
-    # DT = DT.sel(longitude = slice(cnf.ERA5.West,  cnf.ERA5.East ),
-    #             latitude  = slice(cnf.ERA5.North, cnf.ERA5.South))
-
-    ## test plot
-    # DT.u.isel(pressure_level = 0, valid_time = 0).plot()
-    # DT.v.isel(pressure_level = 0, valid_time = 0).plot()
-
-    ## geopotential changes with time!
-    # DT.isel(valid_time = 0, latitude = 0, longitude = 0).z.values
-    # DT.isel(valid_time = 1, latitude = 0, longitude = 0).z.values
 
     ##  Export with seasonal aggregation  ------------------------------------
     if SEASONAL:
@@ -334,13 +321,14 @@ for filein in filenames:
         seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
         for season_idx, season in enumerate(seasons):
             ##  Output process info  -----------------------------------------
-            seaso_C += 1
-            complete = 100 * seaso_C / (filesin_N * 4)
-            duration = datetime.now() - tic
-            total    = duration * 100 / complete
-            eta      = total - duration
-            eda      = (datetime.now() + eta).replace(microsecond = 0)
-            print(f"  {yyyy} {season} {seaso_C}/{filesin_N*4} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
+            # seaso_C += 1
+            # complete = 100 * seaso_C / (filesin_N * 4)
+            # duration = datetime.now() - tic
+            # total    = duration * 100 / complete
+            # eta      = total - duration
+            # eda      = (datetime.now() + eta).replace(microsecond = 0)
+            # print(f"  {yyyy} {season} {seaso_C}/{filesin_N*4} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
+            print(f"  {yyyy} {season}")
 
             ##  Create output file path  -------------------------------------
             fileout = os.path.join(
@@ -350,7 +338,7 @@ for filein in filenames:
 
             ##  Skip already existing files  ---------------------------------
             if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
-                continue
+                return "skip"
 
             ##  Select data to use by season  --------------------------------
             if season == 'Q1_DJF':
@@ -358,7 +346,7 @@ for filein in filenames:
                 previous_file = list(filter(lambda x:'ERA5_' + str(yyyy - 1) in x, filenames))
                 if len(previous_file)!=1:
                     print(f"SKIP season! No file for the {yyyy - 1} found\n")
-                    continue
+                    return "skip"
 
                 ## load ERA5 main file on a xarray
                 DTpre = xr.open_dataset(previous_file[0])
@@ -405,13 +393,15 @@ for filein in filenames:
         ##  Iterate all months of a year
         for m in range(1, 13):
             ##  Output process info  -----------------------------------------
-            month_C += 1
-            complete = 100 * month_C / (filesin_N * 12)
-            duration = datetime.now() - tic
-            total    = duration * 100 / complete
-            eta      = total - duration
-            eda      = (datetime.now() + eta).replace(microsecond = 0)
-            print(f"  {yyyy} M {m:02} {month_C}/{filesin_N*12} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
+            # month_C += 1
+            # complete = 100 * month_C / (filesin_N * 12)
+            # duration = datetime.now() - tic
+            # total    = duration * 100 / complete
+            # eta      = total - duration
+            # eda      = (datetime.now() + eta).replace(microsecond = 0)
+            # print(f"  {yyyy} M {m:02} {month_C}/{filesin_N*12} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
+            print(f"  {yyyy} M {m:02}")
+            
             season   = calendar.month_name[m]
 
             ##  Create output file path  -------------------------------------
@@ -422,7 +412,7 @@ for filein in filenames:
 
             ##  Skip already existing files  ---------------------------------
             if (not FORCE) and (not Ou.output_needs_update(filein, fileout)):
-                continue
+                return "skip"
 
             ##  Select data to use explicitly  -------------------------------
             ## the date format for the ERA5 is already by month
@@ -437,6 +427,14 @@ for filein in filenames:
         ## end monthly loop
     ## end monthly aggregation
 ## end raw files iteration
+
+
+
+
+##  Process raw ERA5 files  --------------------------------------------------
+Pool().map(process_ERA5_file, filenames)
+
+
 
 #  SCRIPT END  ---------------------------------------------------------------
 Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
