@@ -29,7 +29,7 @@ from   datetime import datetime
 import netCDF4  as nc
 import numpy    as np
 import xarray   as xr
-
+import tqdm
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -332,7 +332,7 @@ for filein in filenames:
 
         ##  Compute by season of the year
         seasons = ['Q1_DJF', 'Q2_MAM', 'Q3_JJA', 'Q4_SON']
-        for season_idx, season in enumerate(seasons):
+        for season_idx, season in tqdm.tqdm(enumerate(seasons), total = filesin_N * 4):
             ##  Output process info  -----------------------------------------
             seaso_C += 1
             complete = 100 * seaso_C / (filesin_N * 4)
@@ -403,7 +403,7 @@ for filein in filenames:
         data_type      = "Monthly"
 
         ##  Iterate all months of a year
-        for m in range(1, 13):
+        for m in tqdm.tqdm(range(1, 13), total = filesin_N * 12):
             ##  Output process info  -----------------------------------------
             month_C += 1
             complete = 100 * month_C / (filesin_N * 12)

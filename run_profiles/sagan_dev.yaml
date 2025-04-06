@@ -1,5 +1,5 @@
 #
-#  Profile options for "tyler" host
+#  Run on sagan a development scheme used in tyler 
 #
 #  We assume each host use a different profile for development, production etc
 #
@@ -8,7 +8,7 @@
 mode:
     Force: yes
     Quiet: no
-    Test:  yes
+    Test:  no
 
 
 ##  Set logging paths  ----------------------------------------------
@@ -82,5 +82,5 @@ D1:
 
 ##  Set the years to process  ---------------------------------------
 Range:
-    start: 2020
+    start: 2019
     until: 2020

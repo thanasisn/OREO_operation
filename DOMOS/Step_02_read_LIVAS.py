@@ -19,6 +19,7 @@ import glob
 import warnings
 import numpy.ma as ma
 import xarray as xr
+import tqdm
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -268,17 +269,15 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
             ## !!!
             if TEST: comb = comb[0:4]
-
+            
             ##  Read a LIVAS file  -------------------------------------------
             file_counter = 0
             for LIVAS_lat, LIVAS_lon in comb:
-
                 ec_c = lon_id + lat_id + 2
                 ec_t = len(ERA_Longitude) * len(ERA_Latitude)
                 li_c = file_counter + 1
                 li_t = comb.shape[0]
-
-                print(f"{efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}] ")
+                print(f"\n{efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}] ")
 
                 ##  File to read  -------------------------------------
                 LIVAS_file = os.path.join(
@@ -321,11 +320,6 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 Month = Months[idx]
                 Year  = Years [idx]
 
-                Altitude        = LIVAS_dataset['/Altitude'][:]
-                LIVAS_PD_b532nm = LIVAS_dataset['/LIVAS/Cloud_Free/Pure_Dust_and_Fine_Coarse/Optical_Products/Pure_Dust_Backscatter_Coefficient_532'][idx,:]
-                LIVAS_PD_a532nm = LIVAS_dataset['/LIVAS/Cloud_Free/Pure_Dust_and_Fine_Coarse/Optical_Products/Pure_Dust_Extinction_Coefficient_532'][idx,:]
-                LIVAS_PD_MC     = LIVAS_dataset['/LIVAS/Cloud_Free/Pure_Dust_and_Fine_Coarse/Mass_Concentrations/Pure_Dust_Mass_Concentration'][idx,:]
-                IGBP            = LIVAS_dataset['/CALIPSO_Flags_and_Auxiliary/Auxiliary/IGBP_Surface_Type'][:]
 
 
                 ##  Create a selection index of profile times
@@ -341,39 +335,36 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     continue
 
                 ##  Get data selection from LIVAS
-                xAltitude        = LIVAS.Altitude
-
-
-                xLIVAS_PD_b532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Backscatter_Coefficient_532.sel(
+                Altitude        = LIVAS.Altitude
+                IGBP            = LIVAS.CALIPSO_Flags_and_Auxiliary.Auxiliary.IGBP_Surface_Type
+                
+                LIVAS_PD_b532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Backscatter_Coefficient_532.sel(
                     profile = id_date_range)
 
-                xLIVAS_PD_a532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Extinction_Coefficient_532.sel(
+                LIVAS_PD_a532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Extinction_Coefficient_532.sel(
                     profile = id_date_range)
 
-                xLIVAS_PD_MC     = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Mass_Concentrations.Pure_Dust_Mass_Concentration.sel(
+                LIVAS_PD_MC     = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Mass_Concentrations.Pure_Dust_Mass_Concentration.sel(
                     profile = id_date_range)
 
-                xLIVAS_LR_Dust   = LIVAS.LIVAS.Auxiliary.Lidar_Ratio_Assumptions.Lidar_Ratio_Dust.sel(
+                LIVAS_LR_Dust   = LIVAS.LIVAS.Auxiliary.Lidar_Ratio_Assumptions.Lidar_Ratio_Dust.sel(
                     profile = id_date_range)
 
-                xIGBP            = LIVAS.CALIPSO_Flags_and_Auxiliary.Auxiliary.IGBP_Surface_Type
-
-
-                ## this also changes nan to 0
+                ##  This works bua also changes nan to 0
                 # xLIVAS_PD_a532nm.where(xLIVAS_PD_b532nm == 0, 0)
 
-                sel = np.where(xLIVAS_PD_b532nm == 0) ## to check input
-                xLIVAS_PD_a532nm[sel] = 0
-                xLIVAS_PD_MC    [sel] = 0
-
+                sys.exit("Ddd")
                 ## new idx!
                 idx = np.where(LIVAS_PD_b532nm == 0) ## to check input
                 LIVAS_PD_a532nm[idx] = 0
                 LIVAS_PD_MC    [idx] = 0
 
+                ### !!!  should we concerned with that?
                 if ma.isMaskedArray(LIVAS_PD_b532nm) == True:
-                    LIVAS_PD_a532nm[LIVAS_PD_b532nm.mask == True ] = np.nan
-                    LIVAS_PD_MC[    LIVAS_PD_b532nm.mask == True ] = np.nan
+                    print("a maskded array")
+                    sys.exit("DDD")
+                    LIVAS_PD_a532nm[LIVAS_PD_b532nm.mask == True] = np.nan
+                    LIVAS_PD_MC[    LIVAS_PD_b532nm.mask == True] = np.nan
 
 
                 if file_counter == 0:
@@ -381,27 +372,19 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     Total_LIVAS_PD_a532nm = LIVAS_PD_a532nm
                     Total_LIVAS_PD_MC     = LIVAS_PD_MC
                     Total_IGBP            = IGBP
-
-                    xTotal_LIVAS_PD_a532nm = xLIVAS_PD_a532nm
-                    xTotal_LIVAS_PD_MC     = xLIVAS_PD_MC
-                    xTotal_IGBP            = xIGBP
-                    xTotal_LIVAS_LR_Dust   = xLIVAS_LR_Dust
-
+                    Total_LIVAS_LR_Dust   = LIVAS_LR_Dust
                 else:
                     # print("    STACK")
-                    Total_LIVAS_PD_a532nm = np.vstack([LIVAS_PD_a532nm, Total_LIVAS_PD_a532nm])
-                    Total_LIVAS_PD_MC     = np.vstack([LIVAS_PD_MC,     Total_LIVAS_PD_MC])
-                    Total_IGBP            = np.hstack([Total_IGBP,      IGBP])
+                    Total_LIVAS_PD_MC     = xr.concat([LIVAS_PD_MC,         Total_LIVAS_PD_MC]    , "profile")
+                    Total_IGBP            = xr.concat([Total_IGBP,          IGBP]                 , "profile")
+                    Total_LIVAS_LR_Dust   = xr.concat([Total_LIVAS_LR_Dust, LIVAS_LR_Dust]        , "profile")
+                    Total_LIVAS_PD_a532nm = xr.concat([LIVAS_PD_a532nm,     Total_LIVAS_PD_a532nm], "profile")
 
-                    xTotal_LIVAS_PD_a532nm = np.vstack([xLIVAS_PD_a532nm,     xTotal_LIVAS_PD_a532nm])
-                    xTotal_LIVAS_PD_MC     = np.vstack([xLIVAS_PD_MC,         xTotal_LIVAS_PD_MC])
-                    xTotal_IGBP            = np.hstack([xTotal_IGBP,          xIGBP])
-                    xTotal_LIVAS_LR_Dust   = np.hstack([xTotal_LIVAS_LR_Dust, xLIVAS_LR_Dust])
 
                 file_counter += 1
 
             ##  END iterate LIVAS files for this a cell
-
+            
 
             Number_of_Profiles = np.shape(Total_LIVAS_PD_MC)[0]
             temp = np.copy(Total_LIVAS_PD_MC)
