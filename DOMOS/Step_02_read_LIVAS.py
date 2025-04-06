@@ -27,8 +27,10 @@ import oreo_mod.calc  as Oc
 tic = datetime.now()
 
 ##  Load configuration profile by host name  ---------------------------------
-config_file = f"../run_profiles/{os.uname()[1]}.yaml"
-cnf = Ou.get_configs(config_file)
+cnf = Ou.get_configs(
+        Ou.parse_arguments(run_profiles_folder = "../run_profiles").profile
+    )
+
 
 ##  Set switches  ------------------------------------------------------------
 
@@ -693,24 +695,24 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_N_of_Profiles_id[:]    = Final_Number_of_Profiles
     LIVAS_DOD_532nm_mean[:]      = Final_LIVAS_PD_DOD_532nm
     LIVAS_DOD_532nm_SD[:]        = Final_LIVAS_PD_DOD_532nm_SD
-    # Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
-    # Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
-    # Percentage_IGBP_3_id[:]      = Percentage_IGBP_3
-    # Percentage_IGBP_4_id[:]      = Percentage_IGBP_4
-    # Percentage_IGBP_5_id[:]      = Percentage_IGBP_5
-    # Percentage_IGBP_6_id[:]      = Percentage_IGBP_6
-    # Percentage_IGBP_7_id[:]      = Percentage_IGBP_7
-    # Percentage_IGBP_8_id[:]      = Percentage_IGBP_8
-    # Percentage_IGBP_9_id[:]      = Percentage_IGBP_9
-    # Percentage_IGBP_10_id[:]     = Percentage_IGBP_10
-    # Percentage_IGBP_11_id[:]     = Percentage_IGBP_11
-    # Percentage_IGBP_12_id[:]     = Percentage_IGBP_12
-    # Percentage_IGBP_13_id[:]     = Percentage_IGBP_13
-    # Percentage_IGBP_14_id[:]     = Percentage_IGBP_14
-    # Percentage_IGBP_15_id[:]     = Percentage_IGBP_15
-    # Percentage_IGBP_16_id[:]     = Percentage_IGBP_16
-    # Percentage_IGBP_17_id[:]     = Percentage_IGBP_17
-    # Percentage_IGBP_18_id[:]     = Percentage_IGBP_18
+    Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
+    Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
+    Percentage_IGBP_3_id[:]      = Percentage_IGBP_3
+    Percentage_IGBP_4_id[:]      = Percentage_IGBP_4
+    Percentage_IGBP_5_id[:]      = Percentage_IGBP_5
+    Percentage_IGBP_6_id[:]      = Percentage_IGBP_6
+    Percentage_IGBP_7_id[:]      = Percentage_IGBP_7
+    Percentage_IGBP_8_id[:]      = Percentage_IGBP_8
+    Percentage_IGBP_9_id[:]      = Percentage_IGBP_9
+    Percentage_IGBP_10_id[:]     = Percentage_IGBP_10
+    Percentage_IGBP_11_id[:]     = Percentage_IGBP_11
+    Percentage_IGBP_12_id[:]     = Percentage_IGBP_12
+    Percentage_IGBP_13_id[:]     = Percentage_IGBP_13
+    Percentage_IGBP_14_id[:]     = Percentage_IGBP_14
+    Percentage_IGBP_15_id[:]     = Percentage_IGBP_15
+    Percentage_IGBP_16_id[:]     = Percentage_IGBP_16
+    Percentage_IGBP_17_id[:]     = Percentage_IGBP_17
+    Percentage_IGBP_18_id[:]     = Percentage_IGBP_18
 
     ##  Set global attributes
     my_attrs = dict(title     = "Regridded ERA5 data with LIVAS lookup data",

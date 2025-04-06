@@ -11,8 +11,40 @@ from datetime import datetime
 from dotmap   import DotMap
 import yaml
 import requests
+import argparse
+import glob
 
-def goodbye(logfile, tic, scriptname, quiet=False):
+
+def parse_arguments(run_profiles_folder = "../run_profiles"):
+    """
+    A common way to pass arguments to scripts. We want to have one parser that
+    works for all.
+    """  
+    ##  Get available run profiles 
+    conffiles = glob.glob(os.path.join(run_profiles_folder, "*.yaml"))
+    profiles  = [os.path.splitext(os.path.basename(af))[0] for af in conffiles]
+    
+    def return_path(name):
+        "Get the full path of the run profile file"
+        return os.path.join(run_profiles_folder, f"{name}.yaml")
+        
+    ##  Create argument parser
+    parser = argparse.ArgumentParser()
+
+    ##  Optional arguments
+    parser.add_argument("-p", "--profile", 
+                        help    = "A run profile to use", 
+                        choices = profiles,
+                        type    = return_path,
+                        default = os.uname()[1])
+
+    ## Parse arguments
+    args = parser.parse_args()
+
+    return args
+
+
+def goodbye(logfile, tic, scriptname, quiet = False):
     """
     Log script execution to a central file
     """
@@ -21,19 +53,22 @@ def goodbye(logfile, tic, scriptname, quiet=False):
     out += os.path.normpath(scriptname)        + " "
     out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins"
 
-    ## post telemetry to telegram
+    ## post telemetry to a telegram channel
     TOKEN = "7814434886:AAFQXk24RajNIwCNIT37DI38MSMqtKd0Cgw"
     cid   = "6849911952"
     url   = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={cid}&text={out}"
-    requests.get(url).json()
+    try:
+        requests.get(url).json()
+    except:
+        print("Could not post status message to Telegram")
 
     if not quiet:
         print('\n' + out + '\n')
-    with open(logfile, "a", encoding="utf-8") as runlog:
+    with open(logfile, "a", encoding = "utf-8") as runlog:
         runlog.write(out + '\n')
 
 
-def size_to_human(num, suffix="B"):
+def size_to_human(num, suffix = "B"):
     """
     Convert numbers to human readable format
     """

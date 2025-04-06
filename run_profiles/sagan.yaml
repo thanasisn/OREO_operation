@@ -44,9 +44,7 @@ LIVAS:
 
 OREO:
     path_output:    "/home/athan/DATA/OREO/"
-    contact_emails: "natsisphysicist@gmail.com, "
-
-
+    contact_emails: "natsisphysicist@gmail.com, ..todo.. "
 
 
 ##  Define domains  -------------------------------------------------
@@ -68,7 +66,7 @@ D1:
     MaxLatStep:  2  # used to reduce ERA5 downloads
     ## Longitude range test
     ## The boundaries are expected to be multiples of the step!!
-    West:     -100
+    West:      -90
     East:        0
     LonStep:     5
     MaxLonStep:  5  # used to reduce ERA5 downloads

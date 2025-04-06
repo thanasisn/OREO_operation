@@ -21,8 +21,9 @@ import oreo_mod.calc  as Oc
 tic = datetime.now()
 
 ##  Load configuration profile by host name  ---------------------------------
-config_file = f"../run_profiles/{os.uname()[1]}.yaml"
-cnf = Ou.get_configs(config_file)
+cnf = Ou.get_configs(
+        Ou.parse_arguments(run_profiles_folder = "../run_profiles").profile
+    )
 
 QUIET = cnf.mode.Quiet
 
