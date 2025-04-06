@@ -355,7 +355,7 @@ for filein in filenames:
             ##  Select data to use by season  --------------------------------
             if season == 'Q1_DJF':
                 # File of previous year to read December for DJF season
-                previous_file = list(filter(lambda x:'ERA5_' + str(yyyy - 1) in x, filenames))
+                previous_file = filein.replace(str(yyyy), str(yyyy-1))
                 if len(previous_file)!=1:
                     print(f"SKIP season! No file for the {yyyy - 1} found\n")
                     continue

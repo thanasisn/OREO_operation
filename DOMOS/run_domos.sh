@@ -18,6 +18,7 @@ exec 2> >(tee -i "${ERR_FILE}" >&2)
 
 : "${ID:=$(hostname)}"
 SCRIPT="$(basename "$0")"
+PROFILE="$1:-$(hostname)"
 
 info() { echo ; echo "$(date +'%F %T') ::${SCRIPT}::${ID}:: $* ::" ; echo ; }
 
@@ -30,9 +31,9 @@ end_status() {
   NAME=$2
   REST=($@)
   if [ $STATUS == 0 ]; then
-    notification "end: $ID $NAME" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
+    notification "$ID end: $NAME $PROFILE" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
   else
-    notification "FAILED: $ID $NAME !!!" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
+    notification "$ID FAILED: $NAME $PROFILE !!!" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
   fi
 }
 
@@ -54,13 +55,14 @@ export PYTHONUNBUFFERED=1
 
 info "Get raw data from ERA5"
 notification "start: $ID Step_00_get_ERA5_data.py"
-./Step_00_get_ERA5_data.py
+./Step_00_get_ERA5_data.py "$PROFILE"
 end_status $? "Step_00_get_ERA5_data.py"
 
 
 info "Regrid of ERA5 data"
 notification "start: $ID Step_01_regrid_ERA5.py"
-./Step_01_regrid_ERA5.py
+# ./Step_01_regrid_ERA5.py "$PROFILE"
+./Step_01_regrid_ERA5_parallel.py "$PROFILE"
 end_status $? "Step_01_regrid_ERA5.py"
 
 
