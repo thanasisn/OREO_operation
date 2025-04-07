@@ -18,7 +18,7 @@ exec 2> >(tee -i "${ERR_FILE}" >&2)
 
 : "${ID:=$(hostname)}"
 SCRIPT="$(basename "$0")"
-PROFILE="$1:-$(hostname)"
+PROFILE="${1:-$(hostname)}"
 
 info() { echo ; echo "$(date +'%F %T') ::${SCRIPT}::${ID}:: $* ::" ; echo ; }
 
@@ -45,9 +45,8 @@ echo ""
 set +e
 
 
-info "Activate Conda environment"
 source /home/folder/miniconda/bin/activate && \
-  conda activate oreo ||                         \
+  conda activate "oreo" ||                         \
   { echo "Failed to activate environment"; exit 1; }
 
 
@@ -55,20 +54,20 @@ export PYTHONUNBUFFERED=1
 
 info "Get raw data from ERA5"
 notification "start: $ID Step_00_get_ERA5_data.py"
-./Step_00_get_ERA5_data.py "$PROFILE"
+./Step_00_get_ERA5_data.py -p "$PROFILE"
 end_status $? "Step_00_get_ERA5_data.py"
 
 
 info "Regrid of ERA5 data"
 notification "start: $ID Step_01_regrid_ERA5.py"
 # ./Step_01_regrid_ERA5.py "$PROFILE"
-./Step_01_regrid_ERA5_parallel.py "$PROFILE"
+./Step_01_regrid_ERA5_parallel.py -p "$PROFILE"
 end_status $? "Step_01_regrid_ERA5.py"
 
 
 info "Merge ERA with LIVAS"
 notification "start: $ID Step_02_read_LIVAS.py"
-./Step_02_read_LIVAS.py
+./Step_02_read_LIVAS.py -p "$PROFILE"
 end_status $? "Step_02_read_LIVAS.py"
 
 
