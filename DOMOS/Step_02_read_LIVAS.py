@@ -332,15 +332,15 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 ##  This works but also changes nan to 0
                 # xLIVAS_PD_a532nm.where(xLIVAS_PD_b532nm == 0, 0)
 
-                sys.exit("Ddd")
+                # sys.exit("Ddd")
                 ## !!! to test
                 
+                # idy = np.where(LIVAS_PD_b532nm != 0)
+                # LIVAS_PD_a532nm[idy].values
+                # 
+                # hhh =LIVAS_PD_a532nm[idx].values
+                
                 idx = np.where(LIVAS_PD_b532nm == 0) ## to check input
-                idy = np.where(LIVAS_PD_b532nm != 0)
-                LIVAS_PD_a532nm[idy].values
-                
-                hhh =LIVAS_PD_a532nm[idx].values
-                
                 LIVAS_PD_a532nm[idx] = 0
                 LIVAS_PD_MC    [idx] = 0
 
@@ -350,7 +350,6 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     sys.exit("DDD")
                     LIVAS_PD_a532nm[LIVAS_PD_b532nm.mask == True] = np.nan
                     LIVAS_PD_MC[    LIVAS_PD_b532nm.mask == True] = np.nan
-
 
                 if file_counter == 0:
                     # print("    INIT")

@@ -271,7 +271,8 @@ def regrid():
                     season    = season,
                     details   = stats_message,
                     data_date = str(sesdate),
-                    contacts  = cnf.OREO.contact_emails)
+                    contacts  = cnf.OREO.contact_emails,
+                    user_host = os.getlogin() + "@" + os.uname()[1])
     for name, value in my_attrs.items():
         setattr(ds, name, value)
 
@@ -355,7 +356,7 @@ for filein in filenames:
             ##  Select data to use by season  --------------------------------
             if season == 'Q1_DJF':
                 # File of previous year to read December for DJF season
-                previous_file = filein.replace(str(yyyy), str(yyyy-1))
+                previous_file = filein.replace(str(yyyy), str(yyyy - 1))
                 if len(previous_file)!=1:
                     print(f"SKIP season! No file for the {yyyy - 1} found\n")
                     continue

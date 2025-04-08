@@ -19,29 +19,32 @@ def parse_arguments(run_profiles_folder = "../run_profiles"):
     """
     A common way to pass arguments to scripts. We want to have one parser that
     works for all.
-    """  
+    """
     ##  Get available run profiles 
     conffiles = glob.glob(os.path.join(run_profiles_folder, "*.yaml"))
     profiles  = [os.path.splitext(os.path.basename(af))[0] for af in conffiles]
-    
+
     def return_path(name):
         "Get the full path of the run profile file"
         return os.path.join(run_profiles_folder, f"{name}.yaml")
-        
+
     ##  Create argument parser
     parser = argparse.ArgumentParser()
 
     ##  Optional arguments
-    parser.add_argument("-p", "--profile", 
-                        help    = "A run profile to use", 
+    parser.add_argument("-p", "--profile",
+                        help    = "A run profile to use",
                         choices = profiles,
-                        type    = return_path,
                         default = os.uname()[1])
 
     ## Parse arguments
     args = parser.parse_args()
 
+    ## Replace with full path
+    args.profile = return_path(args.profile)
+
     return args
+
 
 
 def goodbye(logfile, tic, scriptname, quiet = False):
@@ -58,7 +61,7 @@ def goodbye(logfile, tic, scriptname, quiet = False):
     cid   = "6849911952"
     url   = f"https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={cid}&text={out}"
     try:
-        requests.get(url).json()
+        requests.get(url, timeout = 10).json()
     except:
         print("Could not post status message to Telegram")
 
@@ -149,7 +152,7 @@ def get_configs(file, quiet = False):
         sys.exit(f"Missing config file: {file}")
 
     print("\nOpening config file:", file, "\n")
-    with open(file, 'r', encoding="utf-8") as file:
+    with open(file, 'r', encoding = "utf-8") as file:
         configs = yaml.safe_load(file)
 
     # Convert dictionary to use dot notation
