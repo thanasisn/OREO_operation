@@ -15,6 +15,25 @@ import argparse
 import glob
 
 
+def source_code_hash(filepath):
+    """
+    Get a git id for the current source file.
+    
+    Parameters
+    ----------
+    filepath : string
+        Path to a file in the git repo. Use '__file__' within a script.
+    """
+    try:
+        path = pathlib.Path(filepath).resolve().parent
+        res  = subprocess.check_output(["git", "describe", "--always"], 
+                                cwd = path)
+        return res.strip().decode() 
+    except:
+        return "Can not resolve version"
+
+
+
 def parse_arguments(run_profiles_folder = "../run_profiles"):
     """
     A common way to pass arguments to scripts. We want to have one parser that
@@ -49,7 +68,19 @@ def parse_arguments(run_profiles_folder = "../run_profiles"):
 
 def goodbye(logfile, tic, scriptname, quiet = False):
     """
-    Log script execution to a central file
+    Log script execution to a central file. This is used to track execution of 
+    each script.
+    
+    Parameters
+    ----------
+    logfile : string
+        Path to a main logfile.
+
+    tic : datetime
+        The start time of the script.
+        
+    scriptname : string
+        File path of the script
     """
     out  = datetime.now().strftime("%F %T")    + " "
     out += os.getlogin() + "@" + os.uname()[1] + " "
