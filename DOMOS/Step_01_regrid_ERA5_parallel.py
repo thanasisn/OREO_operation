@@ -56,6 +56,7 @@ MONTHLY  = cnf.D1.Monthly
 SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
+VERSION = Ou.source_code_hash(__file__)
 
 ##  Check destination folder exists  -----------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
@@ -248,13 +249,14 @@ def process_ERA5_file(filein):
         time_span[:]  = stats_duration
     
         ##  Set global attributes
-        my_attrs = dict(title     = "Regridded ERA5 data",
-                        type      = data_type,
-                        season    = season,
-                        details   = stats_message,
-                        data_date = str(sesdate),
-                        contacts  = cnf.OREO.contact_emails
-                        user_host = os.getlogin() + "@" + os.uname()[1])
+        my_attrs = dict(title          = "Regridded ERA5 data",
+                        type           = data_type,
+                        season         = season,
+                        details        = stats_message,
+                        data_date      = str(sesdate),
+                        contacts       = cnf.OREO.contact_emails
+                        user_host      = os.getlogin() + "@" + os.uname()[1],
+                        source_version = VERSION)
         for name, value in my_attrs.items():
             setattr(ds, name, value)
     
