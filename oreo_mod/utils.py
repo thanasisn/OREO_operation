@@ -13,12 +13,15 @@ import yaml
 import requests
 import argparse
 import glob
+import pathlib
+import subprocess
+
 
 
 def source_code_hash(filepath):
     """
     Get a git id for the current source file.
-    
+
     Parameters
     ----------
     filepath : string
@@ -26,9 +29,9 @@ def source_code_hash(filepath):
     """
     try:
         path = pathlib.Path(filepath).resolve().parent
-        res  = subprocess.check_output(["git", "describe", "--always"], 
+        res  = subprocess.check_output(["git", "describe", "--always"],
                                 cwd = path)
-        return res.strip().decode() 
+        return res.strip().decode()
     except:
         return "Can not resolve version"
 
@@ -39,7 +42,7 @@ def parse_arguments(run_profiles_folder = "../run_profiles"):
     A common way to pass arguments to scripts. We want to have one parser that
     works for all.
     """
-    ##  Get available run profiles 
+    ##  Get available run profiles
     conffiles = glob.glob(os.path.join(run_profiles_folder, "*.yaml"))
     profiles  = [os.path.splitext(os.path.basename(af))[0] for af in conffiles]
 
@@ -68,9 +71,9 @@ def parse_arguments(run_profiles_folder = "../run_profiles"):
 
 def goodbye(logfile, tic, scriptname, quiet = False):
     """
-    Log script execution to a central file. This is used to track execution of 
+    Log script execution to a central file. This is used to track execution of
     each script.
-    
+
     Parameters
     ----------
     logfile : string
@@ -78,7 +81,7 @@ def goodbye(logfile, tic, scriptname, quiet = False):
 
     tic : datetime
         The start time of the script.
-        
+
     scriptname : string
         File path of the script
     """
