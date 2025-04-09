@@ -1,5 +1,5 @@
 #
-#  Run on sagan a development scheme used in tyler 
+#  Run on sagan a development scheme used in tyler
 #
 #  We assume each host use a different profile for development, production etc
 #
@@ -44,7 +44,7 @@ LIVAS:
 
 OREO:
     path_output:    "/home/athan/DATA/OREO/"
-    contact_emails: "natsisphysicist@gmail.com, ..todo.. "
+    contact_emails: "anatsis@noa.gr, ..todo.. "
 
 
 ##  Define domains  -------------------------------------------------

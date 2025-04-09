@@ -31,6 +31,8 @@ tic = datetime.now()
 cnf = Ou.get_configs(
         Ou.parse_arguments(run_profiles_folder = "../run_profiles").profile
     )
+##  Track the source code status that created each output  -------------------
+VERSION = Ou.source_code_hash(__file__)
 
 
 ##  Set switches  ------------------------------------------------------------
@@ -50,9 +52,6 @@ SEASONAL = cnf.D1.Seasonal
 ##  Reduce work for testing
 TEST = False
 TEST = cnf.mode.Test
-
-##  Track the source code status that created each output  -------------------
-VERSION = Ou.source_code_hash(__file__)
 
 ##  Allow only one case to run at the time  ----------------------------------
 if SEASONAL == MONTHLY:
@@ -335,8 +334,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 file_counter += 1
             ##  end iterate LIVAS files for this a cell
 
-
             # sys.exit("DDD")
+
             ##  Prepare selected data  ----------------------------------------
 
 
@@ -376,15 +375,35 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
             # PD_a532nm.integrate(coord = "ltitude")
 
-            ## FIXME intergration
+            ##  Create DOD with intergration  ---------------------------------
+
+
+            ## FIXME integration
             arr = np.copy(PD_a532nm)
             arr[np.isnan(arr)] = 0
             DOD_532nm          = np.trapezoid(Altitude, arr)
             # np.unique(np.diff(Altitude))
 
+            sel = ~np.isnan(PD_a532nm)
+            PD_a532nm[sel].shape
+            Altitude[sel].shape
+
+            if DOD_532nm != np.trapezoid(Altitude[sel], PD_a532nm[sel]):
+                sys.exit("ccc")
+
+            arr = np.copy(PD_a532nm)
+            arr[np.isnan(arr)] = 0
+
+            arr.shape
+            Altitude.shape
+
+
+
+
             arr = np.copy(PD_a532nm_SD)
             arr[np.isnan(arr)] = 0
             DOD_532nm_SD       = np.trapezoid(Altitude, arr)
+
 
             for count_alt in range(cnf.LIVAS.levels):
                 Final_PD_MC[   lon_id, lat_id, count_alt]    = PD_MC   [count_alt]
@@ -670,4 +689,4 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
 
 #  SCRIPT END  ---------------------------------------------------------------
-Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
+Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname=__file__, version = VERSION)

@@ -69,7 +69,7 @@ def parse_arguments(run_profiles_folder = "../run_profiles"):
 
 
 
-def goodbye(logfile, tic, scriptname, quiet = False):
+def goodbye(logfile, tic, scriptname, version = " - empty - ", quiet = False):
     """
     Log script execution to a central file. This is used to track execution of
     each script.
@@ -84,11 +84,15 @@ def goodbye(logfile, tic, scriptname, quiet = False):
 
     scriptname : string
         File path of the script
+
+    version : string
+        A source code version identifier
     """
     out  = datetime.now().strftime("%F %T")    + " "
     out += os.getlogin() + "@" + os.uname()[1] + " "
     out += os.path.normpath(scriptname)        + " "
-    out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins"
+    out += str(round((datetime.now() - tic).total_seconds() / 60.0, 2)) + " mins "
+    out += str(version)
 
     ## post telemetry to a telegram channel
     TOKEN = "7814434886:AAFQXk24RajNIwCNIT37DI38MSMqtKd0Cgw"
