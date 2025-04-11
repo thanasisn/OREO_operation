@@ -41,6 +41,8 @@ tic = datetime.now()
 cnf = Ou.get_configs(
         Ou.parse_arguments(run_profiles_folder = "../run_profiles").profile
     )
+##  Track the source code status that created each output  -------------------
+VERSION = Ou.source_code_hash(__file__)
 
 ##  Set switches  ------------------------------------------------------------
 
@@ -266,13 +268,14 @@ def regrid():
     time_span[:]  = stats_duration
 
     ##  Set global attributes
-    my_attrs = dict(title     = "Regridded ERA5 data",
-                    type      = data_type,
-                    season    = season,
-                    details   = stats_message,
-                    data_date = str(sesdate),
-                    contacts  = cnf.OREO.contact_emails,
-                    user_host = os.getlogin() + "@" + os.uname()[1])
+    my_attrs = dict(title          = "Regridded ERA5 data",
+                    type           = data_type,
+                    season         = season,
+                    details        = stats_message,
+                    data_date      = str(sesdate),
+                    contacts       = cnf.OREO.contact_emails,
+                    user_host      = os.getlogin() + "@" + os.uname()[1],
+                    source_version = VERSION)
     for name, value in my_attrs.items():
         setattr(ds, name, value)
 
@@ -440,4 +443,4 @@ for filein in filenames:
 ## end raw files iteration
 
 #  SCRIPT END  ---------------------------------------------------------------
-Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
+Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = VERSION)

@@ -42,6 +42,8 @@ tic = datetime.now()
 cnf = Ou.get_configs(
         Ou.parse_arguments(run_profiles_folder = "../run_profiles").profile
     )
+##  Track the source code status that created each output  -------------------
+VERSION = Ou.source_code_hash(__file__)
 
 ##  Set switches  ------------------------------------------------------------
 
@@ -56,7 +58,6 @@ MONTHLY  = cnf.D1.Monthly
 SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
-VERSION = Ou.source_code_hash(__file__)
 
 ##  Check destination folder exists  -----------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
@@ -86,25 +87,25 @@ REGRID_lon_centers = np.arange(fl_West,  fl_East,       cnf.D1.LonStep) + cnf.D1
 
 def process_ERA5_file(filein):
     """
-    Prossecc an ERA5 data file and produce output files.
+    Process an ERA5 data file and produce output files.
     This functions is adapted to run in parallel.
     """
-    
+
     ##  Main regridding function!!  ---------------------------------------------
     def regrid():
         """
         Regrid and store ERA5 data.  This is meant to be used only in this script
         to create monthly and seasonal aggregation of ERA5 data with a consistent
         method.  This function defines how ERA5 regridded data are named and stored.
-    
+
         Returns
         -------
         Writes a new netcdf file with the regridded data.
-    
+
         """
-    
+
         ##  Iterative calculations  ----------------------------------------------
-    
+
         ##  Init target arrays
         height_lower   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
         height_mean    = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
@@ -117,12 +118,12 @@ def process_ERA5_file(filein):
         v_total_SD     = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
         v_total_mean   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
         v_total_median = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    
+
         ##  Compute stats in each cell  ------------------------------------------
         for ilon, lon in enumerate(REGRID_lon_centers):
             for jlat, lat in enumerate(REGRID_lat_centers):
                 for klev, lev in enumerate(DTses.pressure_level):
-    
+
                     ## This includes each of the limit value two times in nearby
                     ## cells, in order to pretty centre the cells.
                     cell = DTses.where(
@@ -133,7 +134,7 @@ def process_ERA5_file(filein):
                         (DTses.pressure_level == lev),
                         drop = True)
                     cell.coords
-    
+
                     ## gather all statistics for each cell
                     u_total_mean  [ilon, jlat, klev] = np.mean(                   cell.u.values)
                     u_total_median[ilon, jlat, klev] = np.median(                 cell.u.values)
@@ -144,12 +145,12 @@ def process_ERA5_file(filein):
                     v_total_SD    [ilon, jlat, klev] = np.std(                    cell.v.values)
                     v_total_N     [ilon, jlat, klev] = np.count_nonzero(~np.isnan(cell.v.values))
                     height_mean   [ilon, jlat, klev] = np.mean(                   cell.height.values)
-    
+
                 ##  Create height bounds  ----------------------------------------
                 ##  We assume the sort is always correct
                 if not (np.diff(height_mean[ilon, jlat, :]) > 0).all():
                     sys.exit("Descending heights")
-    
+
                 ##  Assign boundaries to array
                 H, height_lower[ilon, jlat, :], height_upper[ilon, jlat, :] = \
                     Oc.height_bounds(
@@ -157,17 +158,17 @@ def process_ERA5_file(filein):
                         remove_bottom = cnf.ERA5.extra_height_at_bottom,
                         add_top       = cnf.ERA5.extra_height_at_top,
                         quiet         = True)
-    
+
         ##  Numpy array export  --------------------------------------------------
         ds = nc.Dataset(fileout, 'w', format = 'NETCDF4')
-    
+
         ##  Define coordinates
         ds.createDimension('latitude',       len(REGRID_lat_centers))
         ds.createDimension('pressure_level', len(DTses.pressure_level))
         ds.createDimension('longitude',      len(REGRID_lon_centers))
         ds.createDimension('time',           1)
         ds.createDimension('time_span',      1)
-    
+
         ##  Create variables data types
         U_N        = ds.createVariable('u_N',       np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)  # will be removed
         U_SD       = ds.createVariable('u_SD',      np.float64, ('longitude', 'latitude', 'pressure_level', ), zlib=True)
@@ -184,7 +185,7 @@ def process_ERA5_file(filein):
         lons       = ds.createVariable('longitude',       'f4', ('longitude',), zlib=True)
         time       = ds.createVariable('time',      np.float64, ('time',))
         time_span  = ds.createVariable('time_span',   np.int32, ('time_span',))
-    
+
         ##  Set units attributes
         U_SD.units       = 'm s**-1'
         U_mean.units     = 'm s**-1'
@@ -200,7 +201,7 @@ def process_ERA5_file(filein):
         time.calendar    = 'proleptic_gregorian'
         time.units       = 'seconds since 1970-01-01 00:00:00'  ## same as raw ERA5
         time_span.units  = 'month'
-    
+
         ##  Set long name attribute
         U_SD.long_name       = 'U SD component of wind'
         U_mean.long_name     = 'U mean component of wind'
@@ -215,7 +216,7 @@ def process_ERA5_file(filein):
         lons.long_name       = 'Longitude'
         time.long_name       = 'Time'
         time_span.long_name  = 'The time span of the aggregated data'
-    
+
         ##  Set standard name attribute
         U_SD.standard_name       = 'eastward_wind_SD'
         U_mean.standard_name     = 'eastward_wind_mean'
@@ -230,7 +231,7 @@ def process_ERA5_file(filein):
         lons.standard_name       = 'longitude'
         time.standard_name       = 'time'
         time_span.standard_name  = 'duration'
-    
+
         ##  Assign arrays to datasets
         U_N[:]        = u_total_N             # will be removed
         U_SD[:]       = u_total_SD
@@ -247,7 +248,7 @@ def process_ERA5_file(filein):
         lons[:]       = REGRID_lon_centers    # centre of the cell
         time[:]       = nc.date2num(sesdate, time.units)
         time_span[:]  = stats_duration
-    
+
         ##  Set global attributes
         my_attrs = dict(title          = "Regridded ERA5 data",
                         type           = data_type,
@@ -259,7 +260,7 @@ def process_ERA5_file(filein):
                         source_version = VERSION)
         for name, value in my_attrs.items():
             setattr(ds, name, value)
-    
+
         ##  Do the actual data write
         ds.close()
         print(f"Written: {fileout}")
@@ -367,7 +368,7 @@ def process_ERA5_file(filein):
         for m in range(1, 13):
             ##  Output process info  -----------------------------------------
             print(f"  {yyyy} M {m:02}")
-            
+
             season   = calendar.month_name[m]
 
             ##  Create output file path  -------------------------------------
@@ -392,7 +393,7 @@ def process_ERA5_file(filein):
             regrid()
         ## end monthly loop
     ## end monthly aggregation
-## end of file proccess
+## end of file process
 
 
 ##  Process raw ERA5 files  --------------------------------------------------
@@ -401,4 +402,4 @@ for _ in tqdm.tqdm(pool.imap_unordered(process_ERA5_file, filenames), total=len(
     pass
 
 #  SCRIPT END  ---------------------------------------------------------------
-Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
+Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = VERSION)

@@ -15,11 +15,11 @@ import numpy    as np
 import pandas   as pd
 from   datetime import datetime, timedelta
 import glob
-# import math
 import warnings
 import numpy.ma as ma
 import xarray as xr
 import tqdm
+from random import shuffle
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -50,8 +50,8 @@ SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
 ##  Reduce work for testing
-TEST = False
 TEST = cnf.mode.Test
+TEST = False
 
 ##  Allow only one case to run at the time  ----------------------------------
 if SEASONAL == MONTHLY:
@@ -85,6 +85,9 @@ elif MONTHLY == True:
     )
 
 ERA_filenames.sort()
+## TEST
+shuffle(ERA_filenames)
+
 
 ##  Select ERA5 variables by method
 if cnf.ERA5.data == "mean":
@@ -116,15 +119,12 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ERA_Latitude  = ERA.latitude
     ERA_Longitude = ERA.longitude
 
+    ##  Get the ERA file year and month
+    ERA_year      = pd.DatetimeIndex(ERA.time).year[0]
+    ERA_month     = pd.DatetimeIndex(ERA.time).month[0]
+
     ## TODO use to resolve logic
     ERA.season
-
-    # extracting "yyyymm" suffix from ERA5 filename, for finding the satellite-based MM files.
-    # ERA_year          = int(re.compile('ERA5_([0-9]*)_.*.nc').search(ERA_file).group(1))
-    ERA_year          = pd.DatetimeIndex(ERA.time).year[0]
-    ERA_month         = pd.DatetimeIndex(ERA.time).month[0]
-
-    # ERA_season        = re.compile('ERA5_[0-9]*_Q[1-4]_([A-Z]*)_.*.nc').search(ERA_file).group(1)
 
     if   ERA.season == 'Q1_DJF':
         YoI = [ERA_year - 1, ERA_year, ERA_year]
@@ -142,89 +142,68 @@ for efid, ERA_file in enumerate(ERA_filenames):
         sys.exit("Resolve monthly logic")
         ### monthly here?
 
-
+    ##  Output file name
     fileout = os.path.join(output_path,
                            os.path.basename(ERA_file).replace("ERA5", "ERA5_LIVAS"))
 
-    ## !!!
+    ## !!! TEST
     if TEST:
+        ## doing just a part of the ERA file
         fileout  = fileout.replace(".nc", "_TEST.nc")
-        ## do just a part of the ERA file
         ERA_Longitude = ERA_Longitude[0:2]
         ERA_Latitude  = ERA_Latitude [0:3]
 
 
-    ## skip already existing files
+    ##  Skip already existing files
     if (not FORCE) and (not Ou.output_needs_update(ERA_file, fileout)):
         continue
 
-    Percentage_IGBP_1          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_2          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_3          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_4          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_5          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_6          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_7          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_8          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_9          = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_10         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_11         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_12         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_13         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_14         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_15         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_16         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_17         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_18         = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Percentage_IGBP_1[:]       = np.nan
-    Percentage_IGBP_2[:]       = np.nan
-    Percentage_IGBP_3[:]       = np.nan
-    Percentage_IGBP_4[:]       = np.nan
-    Percentage_IGBP_5[:]       = np.nan
-    Percentage_IGBP_6[:]       = np.nan
-    Percentage_IGBP_7[:]       = np.nan
-    Percentage_IGBP_8[:]       = np.nan
-    Percentage_IGBP_9[:]       = np.nan
-    Percentage_IGBP_10[:]      = np.nan
-    Percentage_IGBP_11[:]      = np.nan
-    Percentage_IGBP_12[:]      = np.nan
-    Percentage_IGBP_13[:]      = np.nan
-    Percentage_IGBP_14[:]      = np.nan
-    Percentage_IGBP_15[:]      = np.nan
-    Percentage_IGBP_16[:]      = np.nan
-    Percentage_IGBP_17[:]      = np.nan
-    Percentage_IGBP_18[:]      = np.nan
+    ##  Get array shape in one call
+    coords_2d = (len(ERA_Longitude), len(ERA_Latitude))
+    coords_3d = (len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels)
 
-    Final_Number_of_Profiles    = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Final_Number_of_L2Profiles  = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Final_LIVAS_PD_DOD_532nm    = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Final_LIVAS_PD_DOD_532nm_SD = np.empty((len(ERA_Longitude), len(ERA_Latitude)))
-    Final_PD_a532nm             = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
-    Final_PD_a532nm_SD          = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
-    Final_PD_MC                 = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
-    Final_PD_MC_SD              = np.empty((len(ERA_Longitude), len(ERA_Latitude), cnf.LIVAS.levels))
+    ##  Create structures to gather data for the domain  ---------------------
+    Final_Number_of_Profiles    = np.full(coords_2d, np.nan)
+    Final_Number_of_L2Profiles  = np.full(coords_2d, np.nan)
+    Final_LIVAS_PD_DOD_532nm    = np.full(coords_2d, np.nan)
+    Final_LIVAS_PD_DOD_532nm_SD = np.full(coords_2d, np.nan)
 
-    Final_Number_of_Profiles[:]    = np.nan
-    Final_Number_of_L2Profiles[:]  = np.nan
-    Final_LIVAS_PD_DOD_532nm[:]    = np.nan
-    Final_LIVAS_PD_DOD_532nm_SD[:] = np.nan
-    Final_PD_a532nm[:]             = np.nan
-    Final_PD_a532nm_SD[:]          = np.nan
-    Final_PD_MC[:]                 = np.nan
-    Final_PD_MC_SD[:]              = np.nan
+    Final_PD_a532nm             = np.full(coords_3d, np.nan)
+    Final_PD_a532nm_SD          = np.full(coords_3d, np.nan)
+    Final_PD_b532nm             = np.full(coords_3d, np.nan)
+    Final_PD_b532nm_SD          = np.full(coords_3d, np.nan)
+    Final_PD_MC                 = np.full(coords_3d, np.nan)
+    Final_PD_MC_SD              = np.full(coords_3d, np.nan)
 
-    Empty_Vertical_array    = np.empty(cnf.LIVAS.levels)
-    Empty_Vertical_array[:] = np.nan
+    Empty_Vertical_array        = np.full(cnf.LIVAS.levels, np.nan)
+
+    Percentage_IGBP_1           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_2           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_3           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_4           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_5           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_6           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_7           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_8           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_9           = np.full(coords_2d, np.nan)
+    Percentage_IGBP_10          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_11          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_12          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_13          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_14          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_15          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_16          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_17          = np.full(coords_2d, np.nan)
+    Percentage_IGBP_18          = np.full(coords_2d, np.nan)
 
 
-    ## TODO use product
+    ## TODO use product to reuduce iteration depth
     # coords = np.array(np.meshgrid(ERA_Latitude, ERA_Longitude)).T.reshape(-1,2)
     # for lat, lon in coords:
     #     print(lat, lon)
 
-
-    for lon_id, lon in enumerate(ERA_Longitude.values):
-        for lat_id, lat in enumerate(ERA_Latitude.values):
+    for i_lon, lon in enumerate(ERA_Longitude.values):
+        for j_lat, lat in enumerate(ERA_Latitude.values):
 
             ##  create list of all LIVAS coords to use for this cell
             Llats = LIVAS_all_lats[np.logical_and(
@@ -237,26 +216,26 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 LIVAS_all_lons < lon + (cnf.D1.LonStep / 2)
                 )]
 
-            ##  expand all combinations of LIVAS coordinates
+            ##  expand all combinations of LIVAS coordinates to loop
             comb = np.array(np.meshgrid(Llats, Llons)).T.reshape(-1, 2)
 
 
-            ## !!!
-            if TEST: comb = comb[0:8]
+            ## !!! TEST do few of LIVAS files
+            if TEST: comb = comb[0:4]
 
             ##  Read a LIVAS file  --------------------------------------------
             file_counter = 0
             for LIVAS_lat, LIVAS_lon in comb:
-                ec_c = lon_id + lat_id + 2
+                ec_c = i_lon + j_lat + 2
                 ec_t = len(ERA_Longitude) * len(ERA_Latitude)
                 li_c = file_counter + 1
                 li_t = comb.shape[0]
-                print(f"\n{efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}] ")
+                print(f"\n{efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}]")
 
                 ##  File to read  ---------------------------------------------
                 LIVAS_file = os.path.join(
                     cnf.LIVAS.path_lookup,
-                    f'LIVAS_CALIPSO_L2_Grid_lon_c_{str(LIVAS_lon)}_lat_c_{str(LIVAS_lat)}.nc')
+                    f"LIVAS_CALIPSO_L2_Grid_lon_c_{str(LIVAS_lon)}_lat_c_{str(LIVAS_lat)}.nc")
 
                 ##  Skip missing LIVAS files or issue an error  ---------------
                 if not os.path.exists(LIVAS_file):
@@ -274,22 +253,24 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 id_date_range = (pd.DatetimeIndex(LIVAS.Profile_Time_Parsed).year.isin(  YoI ) &
                                  pd.DatetimeIndex(LIVAS.Profile_Time_Parsed).month.isin( MoI ) )
 
-                print(f"    LIVAS date range: {LIVAS.Profile_Time_Parsed[id_date_range].min().values} -- {LIVAS.Profile_Time_Parsed[id_date_range].max().values}")
-                print(f"    Count: {(id_date_range).sum()}")
-
-                ##  Skip files without data to use
+                ##  Skip files without usable data  ---------------------------
                 if (id_date_range).sum() == 0:
                     print("No usable data in LIVAS")
                     continue
 
-                ##  Get data selection from LIVAS
+                ## Date range of matching LIVAS data
+                # print(f"    LIVAS date range: {LIVAS.Profile_Time_Parsed[id_date_range].min().values} -- {LIVAS.Profile_Time_Parsed[id_date_range].max().values}")
+                ## Profiles in each file for this cell
+                # print(f"    Count: {(id_date_range).sum()}")
+
+                ##  Get data selection from LIVAS  ----------------------------
                 Altitude        = LIVAS.Altitude
                 IGBP            = LIVAS.CALIPSO_Flags_and_Auxiliary.Auxiliary.IGBP_Surface_Type
 
-                ##  Will exclude data with negative altitude  -----------------
+                ##  Will exclude data with negative altitude
                 id_negative_altitude = Altitude < 0
 
-                ##  Select date range and ignore negative altitude  -----------
+                ##  Select date range and NaN for negative altitude
                 LIVAS_PD_b532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Backscatter_Coefficient_532.sel(
                     profile = id_date_range)
                 LIVAS_PD_b532nm = xr.where(id_negative_altitude, np.nan, LIVAS_PD_b532nm)
@@ -305,55 +286,61 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 LIVAS_LR_Dust   = np.unique(LIVAS.LIVAS.Auxiliary.Lidar_Ratio_Assumptions.Lidar_Ratio_Dust.sel(
                     profile = id_date_range))
 
-                ##  Set extinction and mass to zero when no backscater  -------
+                ##  Set extinction and mass to zero when no backscatter  ------
                 idx = np.where(LIVAS_PD_b532nm == 0)
                 LIVAS_PD_a532nm[idx] = 0
                 LIVAS_PD_MC    [idx] = 0
 
-
-                ### !!!  should we concerned with that?
+                ##  Resolve masked array cases  -------------------------------
                 if ma.isMaskedArray(LIVAS_PD_b532nm) == True:
-                    print("a maskded array")
-                    sys.exit("DDD")
+                    print("A masked array found")
                     LIVAS_PD_a532nm[LIVAS_PD_b532nm.mask == True] = np.nan
+                    LIVAS_PD_b532nm[LIVAS_PD_b532nm.mask == True] = np.nan
                     LIVAS_PD_MC[    LIVAS_PD_b532nm.mask == True] = np.nan
-
 
                 ##  Gather data for this cell  --------------------------------
                 if file_counter == 0:
                     Total_LIVAS_PD_a532nm = LIVAS_PD_a532nm
+                    Total_LIVAS_PD_b532nm = LIVAS_PD_b532nm
                     Total_LIVAS_PD_MC     = LIVAS_PD_MC
                     Total_IGBP            = IGBP
                     Total_LIVAS_LR_Dust   = LIVAS_LR_Dust
                 else:
-                    Total_LIVAS_PD_MC     = xr.concat([LIVAS_PD_MC,         Total_LIVAS_PD_MC]    , "profile")
                     Total_LIVAS_PD_a532nm = xr.concat([LIVAS_PD_a532nm,     Total_LIVAS_PD_a532nm], "profile")
+                    Total_LIVAS_PD_b532nm = xr.concat([LIVAS_PD_b532nm,     Total_LIVAS_PD_b532nm], "profile")
+                    Total_LIVAS_PD_MC     = xr.concat([LIVAS_PD_MC,         Total_LIVAS_PD_MC]    , "profile")
                     Total_IGBP            = xr.concat([Total_IGBP,          IGBP]                 , "profile")
                     Total_LIVAS_LR_Dust   = np.concat([Total_LIVAS_LR_Dust, LIVAS_LR_Dust])
 
                 file_counter += 1
             ##  end iterate LIVAS files for this a cell
 
-            # sys.exit("DDD")
+            ##  Prepare selected data for cell  -------------------------------
 
-            ##  Prepare selected data  ----------------------------------------
+            ##  Count profiles
+            Final_Number_of_Profiles[i_lon, j_lat] = np.shape(Total_LIVAS_PD_MC)[0]
 
 
-
-            Number_of_Profiles = np.shape(Total_LIVAS_PD_MC)[0]
-
+            ## Count data on each level
             temp = np.copy(Total_LIVAS_PD_MC)
             idx  = ~np.isnan(Total_LIVAS_PD_MC)
             temp[idx] = 0
-
-            idx  = np.isnan(Total_LIVAS_PD_MC)
+            idx  =  np.isnan(Total_LIVAS_PD_MC)
             temp[idx] = 1
-            temp = np.ravel([np.nansum(temp[i,:]) for i in range(np.shape(temp)[0])])
 
+            temp = np.ravel([np.nansum(temp[i,:]) for i in range(np.shape(temp)[0])])
+            temp.shape
+
+            if not np.all(temp == np.isnan(Total_LIVAS_PD_MC).sum(dim = "profile")):
+                sys.exit("change")
+
+            ## calculate
             L2_CF_profiles  = len(temp) - len(np.ravel(np.where(temp == cnf.LIVAS.levels)))
 
+            if L2_CF_profiles > 0 and L2_CF_profiles != 399  :
+                sys.exit("test")
 
-            ##  Ignore any dust hight in the atmospher  ----------------------
+            ##  Ignore any dust hight in the atmosphere  ----------------------
             Total_LIVAS_PD_a532nm[Altitude > cnf.LIVAS.height_limit_km] = np.nan
             Total_LIVAS_PD_MC    [Altitude > cnf.LIVAS.height_limit_km] = np.nan
 
@@ -364,18 +351,18 @@ for efid, ERA_file in enumerate(ERA_filenames):
             PD_a532nm_SD = Total_LIVAS_PD_a532nm.std(dim = "profile", skipna = True, ddof = 1)
             PD_MC_SD     = Total_LIVAS_PD_MC    .std(dim = "profile", skipna = True, ddof = 1)
 
-            # PD_a532nm    = np.nanmean(Total_LIVAS_PD_a532nm,axis = 0)
-            # PD_MC        = np.nanmean(Total_LIVAS_PD_MC,    axis = 0)
-            # PD_MC_SD     = np.nanstd(Total_LIVAS_PD_MC,     axis = 0, ddof = 1)
-            # PD_a532nm_SD = np.nanstd(Total_LIVAS_PD_a532nm, axis = 0, ddof = 1)
-            # PD_a532nm   [Altitude > cnf.LIVAS.height_limit_km] = np.nan
-            # PD_MC       [Altitude > cnf.LIVAS.height_limit_km] = np.nan
-            # PD_MC_SD    [Altitude > cnf.LIVAS.height_limit_km] = np.nan
-            # PD_a532nm_SD[Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            ## test eq
+            # T_PD_a532nm    = np.nanmean(Total_LIVAS_PD_a532nm,axis = 0)
+            # T_PD_MC        = np.nanmean(Total_LIVAS_PD_MC,    axis = 0)
+            # T_PD_MC_SD     = np.nanstd(Total_LIVAS_PD_MC,     axis = 0, ddof = 1)
+            # T_PD_a532nm_SD = np.nanstd(Total_LIVAS_PD_a532nm, axis = 0, ddof = 1)
+            # T_PD_a532nm   [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            # T_PD_MC       [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            # T_PD_MC_SD    [Altitude > cnf.LIVAS.height_limit_km] = np.nan
+            # T_PD_a532nm_SD[Altitude > cnf.LIVAS.height_limit_km] = np.nan
 
-            # PD_a532nm.integrate(coord = "ltitude")
 
-            ##  Create DOD with intergration  ---------------------------------
+            ##  Create DOD with integration  ---------------------------------
 
 
             ## FIXME integration
@@ -388,8 +375,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
             PD_a532nm[sel].shape
             Altitude[sel].shape
 
-            if DOD_532nm != np.trapezoid(Altitude[sel], PD_a532nm[sel]):
-                sys.exit("ccc")
+            # if DOD_532nm != np.trapezoid(Altitude[sel], PD_a532nm[sel]):
+            #     sys.exit("integration diff") this happens
 
             arr = np.copy(PD_a532nm)
             arr[np.isnan(arr)] = 0
@@ -398,43 +385,41 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Altitude.shape
 
 
-
-
             arr = np.copy(PD_a532nm_SD)
             arr[np.isnan(arr)] = 0
             DOD_532nm_SD       = np.trapezoid(Altitude, arr)
 
 
             for count_alt in range(cnf.LIVAS.levels):
-                Final_PD_MC[   lon_id, lat_id, count_alt]    = PD_MC   [count_alt]
-                Final_PD_MC_SD[lon_id, lat_id, count_alt]    = PD_MC_SD[count_alt]
-                Final_PD_a532nm                              = PD_a532nm[count_alt]
-                Final_PD_a532nm_SD                           = PD_a532nm_SD[count_alt]
+                Final_PD_MC[   i_lon, j_lat, count_alt]  = PD_MC   [count_alt]
+                Final_PD_MC_SD[i_lon, j_lat, count_alt]  = PD_MC_SD[count_alt]
+                Final_PD_a532nm                          = PD_a532nm[count_alt]
+                Final_PD_a532nm_SD                       = PD_a532nm_SD[count_alt]
 
-            Final_LIVAS_PD_DOD_532nm[lon_id,lat_id]     = DOD_532nm
-            Final_LIVAS_PD_DOD_532nm_SD[lon_id,lat_id]  = DOD_532nm_SD
+            Final_LIVAS_PD_DOD_532nm[i_lon,j_lat]     = DOD_532nm
+            Final_LIVAS_PD_DOD_532nm_SD[i_lon,j_lat]  = DOD_532nm_SD
 
-            Percentage_IGBP_1 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  1)),float(len(IGBP))))*100.0
-            Percentage_IGBP_2 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  2)),float(len(IGBP))))*100.0
-            Percentage_IGBP_3 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  3)),float(len(IGBP))))*100.0
-            Percentage_IGBP_4 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  4)),float(len(IGBP))))*100.0
-            Percentage_IGBP_5 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  5)),float(len(IGBP))))*100.0
-            Percentage_IGBP_6 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  6)),float(len(IGBP))))*100.0
-            Percentage_IGBP_7 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  7)),float(len(IGBP))))*100.0
-            Percentage_IGBP_8 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  8)),float(len(IGBP))))*100.0
-            Percentage_IGBP_9 [lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP ==  9)),float(len(IGBP))))*100.0
-            Percentage_IGBP_10[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 10)),float(len(IGBP))))*100.0
-            Percentage_IGBP_11[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 11)),float(len(IGBP))))*100.0
-            Percentage_IGBP_12[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 12)),float(len(IGBP))))*100.0
-            Percentage_IGBP_13[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 13)),float(len(IGBP))))*100.0
-            Percentage_IGBP_14[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 14)),float(len(IGBP))))*100.0
-            Percentage_IGBP_15[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 15)),float(len(IGBP))))*100.0
-            Percentage_IGBP_16[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 16)),float(len(IGBP))))*100.0
-            Percentage_IGBP_17[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 17)),float(len(IGBP))))*100.0
-            Percentage_IGBP_18[lon_id, lat_id] = (np.divide(float(np.count_nonzero(IGBP == 18)),float(len(IGBP))))*100.0
+            Final_Number_of_L2Profiles[i_lon, j_lat] = L2_CF_profiles
 
-            Final_Number_of_Profiles[  lon_id, lat_id] = Number_of_Profiles
-            Final_Number_of_L2Profiles[lon_id, lat_id] = L2_CF_profiles
+            Percentage_IGBP_1 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  1)),float(len(IGBP))))*100.0
+            Percentage_IGBP_2 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  2)),float(len(IGBP))))*100.0
+            Percentage_IGBP_3 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  3)),float(len(IGBP))))*100.0
+            Percentage_IGBP_4 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  4)),float(len(IGBP))))*100.0
+            Percentage_IGBP_5 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  5)),float(len(IGBP))))*100.0
+            Percentage_IGBP_6 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  6)),float(len(IGBP))))*100.0
+            Percentage_IGBP_7 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  7)),float(len(IGBP))))*100.0
+            Percentage_IGBP_8 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  8)),float(len(IGBP))))*100.0
+            Percentage_IGBP_9 [i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP ==  9)),float(len(IGBP))))*100.0
+            Percentage_IGBP_10[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 10)),float(len(IGBP))))*100.0
+            Percentage_IGBP_11[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 11)),float(len(IGBP))))*100.0
+            Percentage_IGBP_12[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 12)),float(len(IGBP))))*100.0
+            Percentage_IGBP_13[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 13)),float(len(IGBP))))*100.0
+            Percentage_IGBP_14[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 14)),float(len(IGBP))))*100.0
+            Percentage_IGBP_15[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 15)),float(len(IGBP))))*100.0
+            Percentage_IGBP_16[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 16)),float(len(IGBP))))*100.0
+            Percentage_IGBP_17[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 17)),float(len(IGBP))))*100.0
+            Percentage_IGBP_18[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 18)),float(len(IGBP))))*100.0
+
 
             # sys.exit("wait")
 
@@ -443,24 +428,25 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
     ##  Saving dataset as NetCDF ----------------------------------------------
 
-    ## !!! why to m
+    ## TODO use meters everywere
     Altitude = Altitude*1000.0
 
-    # creating nc. filename and initiallizing:
+    # creating file
     ds           = nc.Dataset(fileout, 'w', format='NETCDF4')
 
-    # create nc. dimensions:
+    # create dimensions
     ds.createDimension('ERA_lev',     ERA.pressure_level.shape[0])
     ds.createDimension('CALIPSO_lev', len(Altitude))
     ds.createDimension('lat',         len(ERA_Latitude))
     ds.createDimension('lon',         len(ERA_Longitude))
 
-    Geolocation_group     = ds.createGroup("Geolocation")
-    ERA5_group            = ds.createGroup("ERA5")
-    LIVAS_group           = ds.createGroup("LIVAS")
-    Land_Ocean_Mask_group = ds.createGroup("Land_Ocean_Mask")
+    ## create groups
+    Geolocation_group         = ds.createGroup("Geolocation")
+    ERA5_group                = ds.createGroup("ERA5")
+    LIVAS_group               = ds.createGroup("LIVAS")
+    Land_Ocean_Mask_group     = ds.createGroup("Land_Ocean_Mask")
 
-    # create nc. variables:
+    ## create variables
     lats_id                   = ds.createVariable('Geolocation/Latitude', 'f4', ('lat',))
     lons_id                   = ds.createVariable('Geolocation/Longitude','f4', ('lon',))
 
@@ -501,7 +487,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
     Percentage_IGBP_17_id     = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_17', np.float64, ('lon','lat',), zlib=True)
     Percentage_IGBP_18_id     = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_18', np.float64, ('lon','lat',), zlib=True)
 
-
+    ## set attributes
     lats_id.units                   = 'degrees_north'
     lons_id.units                   = 'degrees_east'
     ERA_Height_id.units             = 'km'
@@ -618,6 +604,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
     Percentage_IGBP_17_id.fill_value     = np.nan
     Percentage_IGBP_18_id.fill_value     = np.nan
 
+    ##  Asign data to variables
 
     lats_id[:]                   = ERA_Latitude
     lons_id[:]                   = ERA_Longitude
@@ -689,4 +676,4 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
 
 #  SCRIPT END  ---------------------------------------------------------------
-Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname=__file__, version = VERSION)
+Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = VERSION)
