@@ -28,15 +28,26 @@ $2" "https://api.telegram.org/bot7814434886:AAFQXk24RajNIwCNIT37DI38MSMqtKd0Cgw/
 
 end_status() {
   STATUS=$1
-  NAME=$2
+  NAME="$(basename $2)"
   REST=($@)
   if [ $STATUS == 0 ]; then
-    notification "$ID end: $NAME $PROFILE" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
+    notification "$ID OK: $NAME $PROFILE" "$STATUS  ${REST[@]:2:${#REST[@]}}"
   else
-    notification "$ID FAILED: $NAME $PROFILE !!!" "Status: $STATUS  ${REST[@]:2:${#REST[@]}}"
+    notification "$ID FAILED!!!: $NAME $PROFILE" "$STATUS  ${REST[@]:2:${#REST[@]}}"
   fi
 }
 
+start_status() {
+  NAME="$(basename $1)"
+  REST=($@)
+  notification "$ID start: $NAME $PROFILE"
+}
+
+# Python command in conda
+CONDA="conda run -n oreo --live-stream python"
+
+
+##  MAIN SEQUENCE  -------------------------------------------------------------
 echo ""
 echo "****    $(date +"%F %T") $USER@$HOSTNAME    ****"
 echo ""
@@ -44,35 +55,23 @@ echo ""
 ## ignore errors
 set +e
 
-
-source /home/folder/miniconda/bin/activate && \
-  conda activate "oreo" ||                         \
-  { echo "Failed to activate environment"; exit 1; }
-
-
-export PYTHONUNBUFFERED=1
-
 info "Get raw data from ERA5"
-notification "start: $ID Step_00_get_ERA5_data.py"
-./Step_00_get_ERA5_data.py -p "$PROFILE"
-end_status $? "Step_00_get_ERA5_data.py"
-
+ascript="./Step_00_get_ERA5_data.py"
+start_status "$ascript"
+$CONDA "$ascript"  -p "$PROFILE"
+end_status $? "$ascript"
 
 info "Regrid of ERA5 data"
-notification "start: $ID Step_01_regrid_ERA5.py"
-# ./Step_01_regrid_ERA5.py "$PROFILE"
-./Step_01_regrid_ERA5_parallel.py -p "$PROFILE"
-end_status $? "Step_01_regrid_ERA5.py"
+ascript="./Step_01_regrid_ERA5_parallel.py"
+start_status "$ascript"
+$CONDA "$ascript"  -p "$PROFILE"
+end_status $? "$ascript"
+
+exit
 
 
 info "Merge ERA with LIVAS"
-notification "start: $ID Step_02_read_LIVAS.py"
 ./Step_02_read_LIVAS.py -p "$PROFILE"
-end_status $? "Step_02_read_LIVAS.py"
-
-
-info "Deactivate Conda environment"
-conda deactivate
 
 info "END in $SECONDS seconds"
 exit 0
