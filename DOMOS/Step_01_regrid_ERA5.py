@@ -360,8 +360,8 @@ for filein in filenames:
             if season == 'Q1_DJF':
                 # File of previous year to read December for DJF season
                 previous_file = filein.replace(str(yyyy), str(yyyy - 1))
-                if len(previous_file)!=1:
-                    print(f"SKIP season! No file for the {yyyy - 1} found\n")
+                if not os.path.exists(previous_file):
+                    print(f"SKIP season! No file for the {yyyy - 1} found {previous_file}\n")
                     continue
 
                 ## load ERA5 main file on a xarray

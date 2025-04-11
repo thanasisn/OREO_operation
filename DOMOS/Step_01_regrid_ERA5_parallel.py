@@ -106,18 +106,19 @@ def process_ERA5_file(filein):
 
         ##  Iterative calculations  ----------------------------------------------
 
+        coords_3d = (len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level))
         ##  Init target arrays
-        height_lower   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        height_mean    = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        height_upper   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        u_total_N      = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        u_total_SD     = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        u_total_mean   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        u_total_median = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        v_total_N      = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        v_total_SD     = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        v_total_mean   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-        v_total_median = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+        height_lower   = np.full(coords_3d, np.nan)
+        height_mean    = np.full(coords_3d, np.nan)
+        height_upper   = np.full(coords_3d, np.nan)
+        u_total_N      = np.full(coords_3d, np.nan)
+        u_total_SD     = np.full(coords_3d, np.nan)
+        u_total_mean   = np.full(coords_3d, np.nan)
+        u_total_median = np.full(coords_3d, np.nan)
+        v_total_N      = np.full(coords_3d, np.nan)
+        v_total_SD     = np.full(coords_3d, np.nan)
+        v_total_mean   = np.full(coords_3d, np.nan)
+        v_total_median = np.full(coords_3d, np.nan)
 
         ##  Compute stats in each cell  ------------------------------------------
         for ilon, lon in enumerate(REGRID_lon_centers):
@@ -164,8 +165,8 @@ def process_ERA5_file(filein):
 
         ##  Define coordinates
         ds.createDimension('latitude',       len(REGRID_lat_centers))
-        ds.createDimension('pressure_level', len(DTses.pressure_level))
         ds.createDimension('longitude',      len(REGRID_lon_centers))
+        ds.createDimension('pressure_level', len(DTses.pressure_level))
         ds.createDimension('time',           1)
         ds.createDimension('time_span',      1)
 
@@ -318,8 +319,8 @@ def process_ERA5_file(filein):
             if season == 'Q1_DJF':
                 # File of previous year to read December for DJF season
                 previous_file = filein.replace(str(yyyy), str(yyyy - 1))
-                if len(previous_file)!=1:
-                    print(f"SKIP season! No file for the {yyyy - 1} found\n")
+                if not os.path.exists(previous_file):
+                    print(f"SKIP season! No file for the {yyyy - 1} found {previous_file}\n")
                     continue
 
                 ## load ERA5 main file on a xarray
