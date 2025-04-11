@@ -193,9 +193,9 @@ def process_ERA5_file(filein):
         V_SD.units       = 'm s**-1'
         V_mean.units     = 'm s**-1'
         V_median.units   = 'm s**-1'
-        height.units     = 'km'  ## conversion at the final step
-        height_low.units = 'km'  ## conversion at the final step
-        height_up.units  = 'km'  ## conversion at the final step
+        height.units     = 'm'
+        height_low.units = 'm'
+        height_up.units  = 'm'
         lats.units       = 'degrees_north'
         lons.units       = 'degrees_east'
         time.calendar    = 'proleptic_gregorian'
@@ -241,9 +241,9 @@ def process_ERA5_file(filein):
         V_SD[:]       = v_total_SD
         V_mean[:]     = v_total_mean
         V_median[:]   = v_total_median
-        height[:]     = height_mean  / 1000.  # to km
-        height_low[:] = height_lower / 1000.  # to km
-        height_up[:]  = height_upper / 1000.  # to km
+        height[:]     = height_mean
+        height_low[:] = height_lower
+        height_up[:]  = height_upper
         lats[:]       = REGRID_lat_centers    # centre of the cell
         lons[:]       = REGRID_lon_centers    # centre of the cell
         time[:]       = nc.date2num(sesdate, time.units)
@@ -255,7 +255,7 @@ def process_ERA5_file(filein):
                         season         = season,
                         details        = stats_message,
                         data_date      = str(sesdate),
-                        contacts       = cnf.OREO.contact_emails
+                        contacts       = cnf.OREO.contact_emails,
                         user_host      = os.getlogin() + "@" + os.uname()[1],
                         source_version = VERSION)
         for name, value in my_attrs.items():
