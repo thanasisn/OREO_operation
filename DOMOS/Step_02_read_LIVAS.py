@@ -123,9 +123,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ERA_year      = pd.DatetimeIndex(ERA.time).year[0]
     ERA_month     = pd.DatetimeIndex(ERA.time).month[0]
 
-    ## TODO use to resolve logic
-    ERA.season
-
+    ##  Resolve the time span of data to use  ---------------------------------
     if   ERA.season == 'Q1_DJF':
         YoI = [ERA_year - 1, ERA_year, ERA_year]
         MoI = [12, 1, 2]
@@ -138,11 +136,14 @@ for efid, ERA_file in enumerate(ERA_filenames):
     elif ERA.season == 'Q4_SON':
         YoI = [ERA_year, ERA_year, ERA_year]
         MoI = [9, 10, 11]
+    elif ERA.type == "Monthly":
+        ## this wokrs for monthly data
+        YoI = [ ERA_year  ]
+        MoI = [ ERA_month ]
     else:
-        sys.exit("Resolve monthly logic")
-        ### monthly here?
+        sys.exit("Can not resolve the time step of the input data!")
 
-    ##  Output file name
+    ##  Output file name  -----------------------------------------------------
     fileout = os.path.join(output_path,
                            os.path.basename(ERA_file).replace("ERA5", "ERA5_LIVAS"))
 
@@ -266,8 +267,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 # print(f"    Count: {(id_date_range).sum()}")
 
                 ##  Get data selection from LIVAS  ----------------------------
-                ## some valiables are in km
-                Altitude = LIVAS.Altitude * 1000  ## Always use meters
+                ## BEWARE some valiables are in km in LIVAS files
+                Altitude = LIVAS.Altitude * 1000  ## Convert to meters
                 IGBP     = LIVAS.CALIPSO_Flags_and_Auxiliary.Auxiliary.IGBP_Surface_Type
 
                 ##  Will exclude data with negative altitude
@@ -374,6 +375,22 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 ## !!! why not levels
                 Final_PD_a532nm                         = PD_a532nm[count_alt]
                 Final_PD_a532nm_SD                      = PD_a532nm_SD[count_alt]
+
+
+            Final_PD_MC[   i_lon, j_lat,:] == PD_MC
+            Final_PD_MC[   i_lon, j_lat,:]
+            PD_MC.equals(PD_MC)
+            PD_MC.equals(Final_PD_MC[   i_lon, j_lat,:])
+            PD_MC[ ~np.equal(PD_MC.values, Final_PD_MC[   i_lon, j_lat,:]) ]
+            Final_PD_MC[   i_lon, j_lat, ~np.equal(PD_MC.values, Final_PD_MC[   i_lon, j_lat,:]) ]
+
+
+            TT = np.full(coords_3d, np.nan)
+            TT[ i_lon, j_lat,:] = PD_MC
+            TT[ i_lon, j_lat,:] == Final_PD_MC[   i_lon, j_lat,:]
+
+            # if TEST: sys.exit("wait")
+
 
             Final_LIVAS_PD_DOD_532nm[   i_lon, j_lat] = DOD_532nm
             Final_LIVAS_PD_DOD_532nm_SD[i_lon, j_lat] = DOD_532nm_SD
