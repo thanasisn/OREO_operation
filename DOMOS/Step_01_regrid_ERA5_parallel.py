@@ -43,7 +43,7 @@ cnf = Ou.get_configs(
         Ou.parse_arguments(run_profiles_folder = "../run_profiles").profile
     )
 ##  Track the source code status that created each output  -------------------
-VERSION = Ou.source_code_hash(__file__)
+TRACE = Ou.source_code_hash(__file__)
 
 ##  Set switches  ------------------------------------------------------------
 
@@ -259,7 +259,7 @@ def process_ERA5_file(filein):
                         contacts       = cnf.OREO.contact_emails,
                         creation       = format(datetime.now(timezone.utc)),
                         user_host      = os.getlogin() + "@" + os.uname()[1],
-                        source_version = VERSION)
+                        source_version = TRACE)
         for name, value in my_attrs.items():
             setattr(ds, name, value)
 
@@ -404,4 +404,4 @@ for _ in tqdm.tqdm(pool.imap_unordered(process_ERA5_file, filenames), total=len(
     pass
 
 #  SCRIPT END  ---------------------------------------------------------------
-Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = VERSION)
+Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = TRACE)

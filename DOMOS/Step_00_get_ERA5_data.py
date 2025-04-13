@@ -24,6 +24,10 @@ tic = datetime.now()
 cnf = Ou.get_configs(
         Ou.parse_arguments(run_profiles_folder = "../run_profiles").profile
     )
+##  Track the source code status that created each output  -------------------
+TRACE = Ou.source_code_hash(__file__)
+
+##  Set switches  ------------------------------------------------------------
 
 QUIET = cnf.mode.Quiet
 
@@ -101,4 +105,4 @@ for yyyy in range(cnf.Range.start, cnf.Range.until + 1):
     client.retrieve(dataset, request, target)
 
 #  SCRIPT END  ---------------------------------------------------------------
-Ou.goodbye(cnf.LOGs.run, tic=tic, scriptname=__file__)
+Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = TRACE)
