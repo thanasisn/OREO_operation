@@ -13,7 +13,7 @@ import re
 import netCDF4  as nc
 import numpy    as np
 import pandas   as pd
-from   datetime import datetime, timedelta
+from   datetime import datetime, timedelta, timezone
 import glob
 import warnings
 import numpy.ma as ma
@@ -296,7 +296,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
                 ##  Resolve masked array cases  -------------------------------
                 if ma.isMaskedArray(LIVAS_PD_b532nm) == True:
-                    print("A masked array found")
+                    print("A masked array found and applied")
                     LIVAS_PD_a532nm[LIVAS_PD_b532nm.mask == True] = np.nan
                     LIVAS_PD_b532nm[LIVAS_PD_b532nm.mask == True] = np.nan
                     LIVAS_PD_MC[    LIVAS_PD_b532nm.mask == True] = np.nan
@@ -331,22 +331,24 @@ for efid, ERA_file in enumerate(ERA_filenames):
             temp[idx] = 1
 
             temp = np.ravel([np.nansum(temp[i,:]) for i in range(np.shape(temp)[0])])
-            temp.shape
 
+            ## TEST before apply, test one step count
             if not np.all(temp == np.isnan(Total_LIVAS_PD_MC).sum(dim = "profile")):
                 sys.exit("change")
 
-            ## calculate Cloud flags !!! is this working
+            ## calculate Cloud flags !!! is this doing anything
             L2_CF_profiles  = len(temp) - len(np.ravel(np.where(temp == cnf.LIVAS.levels)))
 
-            if L2_CF_profiles > 0 and L2_CF_profiles != 399  :
+            ## try catch cases
+            if TEST and L2_CF_profiles > 0 and L2_CF_profiles != 399:
                 sys.exit("test")
 
             ##  Ignore any dust hight in the atmosphere  ----------------------
             Total_LIVAS_PD_a532nm[Altitude > cnf.LIVAS.height_limit_m] = np.nan
+            Total_LIVAS_PD_b532nm[Altitude > cnf.LIVAS.height_limit_m] = np.nan
             Total_LIVAS_PD_MC    [Altitude > cnf.LIVAS.height_limit_m] = np.nan
 
-            ##  Create mean vertical profile
+            ##  Create mean vertical profile  ---------------------------------
             PD_a532nm    = Total_LIVAS_PD_a532nm.mean(dim = "profile", skipna = True)
             PD_b532nm    = Total_LIVAS_PD_b532nm.mean(dim = "profile", skipna = True)
             PD_MC        = Total_LIVAS_PD_MC    .mean(dim = "profile", skipna = True)
@@ -355,46 +357,21 @@ for efid, ERA_file in enumerate(ERA_filenames):
             PD_b532nm_SD = Total_LIVAS_PD_b532nm.std(dim = "profile", skipna = True, ddof = 1)
             PD_MC_SD     = Total_LIVAS_PD_MC    .std(dim = "profile", skipna = True, ddof = 1)
 
-            ## test eq
-            # T_PD_a532nm    = np.nanmean(Total_LIVAS_PD_a532nm,axis = 0)
-            # T_PD_MC        = np.nanmean(Total_LIVAS_PD_MC,    axis = 0)
-            # T_PD_MC_SD     = np.nanstd(Total_LIVAS_PD_MC,     axis = 0, ddof = 1)
-            # T_PD_a532nm_SD = np.nanstd(Total_LIVAS_PD_a532nm, axis = 0, ddof = 1)
-            # T_PD_a532nm   [Altitude > cnf.LIVAS.height_limit_km] = np.nan
-            # T_PD_MC       [Altitude > cnf.LIVAS.height_limit_km] = np.nan
-            # T_PD_MC_SD    [Altitude > cnf.LIVAS.height_limit_km] = np.nan
-            # T_PD_a532nm_SD[Altitude > cnf.LIVAS.height_limit_km] = np.nan
-
-
-            ##  Create DOD with integration  ---------------------------------
-
-            ## FIXME integration
+            ##  Create DOD with vertical integration  -------------------------
             arr = np.copy(PD_a532nm)
             arr[np.isnan(arr)] = 0
             DOD_532nm          = np.trapezoid(Altitude, arr)
-            # np.unique(np.diff(Altitude))
-
-            sel = ~np.isnan(PD_a532nm)
-            PD_a532nm[sel].shape
-            Altitude[sel].shape
-
-            if DOD_532nm != np.trapezoid(Altitude[sel], PD_a532nm[sel]):
-                sys.exit("integration diff") #this happens
-
-            arr = np.copy(PD_a532nm)
-            arr[np.isnan(arr)] = 0
 
             arr = np.copy(PD_a532nm_SD)
             arr[np.isnan(arr)] = 0
             DOD_532nm_SD       = np.trapezoid(Altitude, arr)
 
 
-            sys.exit("DD")
-
+            ## !!! ambiguous assignment
             for count_alt in range(cnf.LIVAS.levels):
                 Final_PD_MC[   i_lon, j_lat, count_alt] = PD_MC   [count_alt]
                 Final_PD_MC_SD[i_lon, j_lat, count_alt] = PD_MC_SD[count_alt]
-                ## !!! why not
+                ## !!! why not levels
                 Final_PD_a532nm                         = PD_a532nm[count_alt]
                 Final_PD_a532nm_SD                      = PD_a532nm_SD[count_alt]
 
@@ -421,16 +398,11 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Percentage_IGBP_16[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 16)),float(len(IGBP))))*100.0
             Percentage_IGBP_17[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 17)),float(len(IGBP))))*100.0
             Percentage_IGBP_18[i_lon, j_lat] = (np.divide(float(np.count_nonzero(IGBP == 18)),float(len(IGBP))))*100.0
-
-
-            # sys.exit("wait")
-
-    ## END iterate domain
+    ## END iteration on the whole domain
 
 
     ##  Saving dataset as NetCDF ----------------------------------------------
 
-    ## TODO use meters everywere
     # Altitude = Altitude*1000.0
 
     # creating file
@@ -620,29 +592,38 @@ for efid, ERA_file in enumerate(ERA_filenames):
     Percentage_IGBP_17_id.fill_value     = np.nan
     Percentage_IGBP_18_id.fill_value     = np.nan
 
-    ##  Asign data to variables
+    ##  Assign data to variables  ----------------------------------------------
 
     lats_id[:]                   = ERA_Latitude
     lons_id[:]                   = ERA_Longitude
 
-    ## TODO move selection in if TEST for efficiency
-
-    ERA_Height_id[:]             = ERA.height.sel(latitude  = ERA_Latitude,
-                                                  longitude = ERA_Longitude)
-    ERA_U_id[:]                  = ERA[ U ].sel(latitude  = ERA_Latitude,
-                                                longitude = ERA_Longitude)
-    ERA_U_SD_id[:]               = ERA.u_SD.sel(latitude  = ERA_Latitude,
-                                                longitude = ERA_Longitude)
-    ERA_V_id[:]                  = ERA[ V ].sel(latitude  = ERA_Latitude,
-                                                longitude = ERA_Longitude)
-    ERA_V_SD_id[:]               = ERA.v_SD.sel(latitude  = ERA_Latitude,
-                                                longitude = ERA_Longitude)
-    ERA_height_low_id[:]          = ERA.height_low.sel(latitude  = ERA_Latitude,
-                                                       longitude = ERA_Longitude)
-    ERA_height_up_id[:]          = ERA.height_up.sel(latitude  = ERA_Latitude,
+    if TEST:
+        ## test in a subdomain
+        ERA_Height_id[:]             = ERA.height.sel(latitude  = ERA_Latitude,
                                                       longitude = ERA_Longitude)
+        ERA_U_id[:]                  = ERA[ U ].sel(latitude  = ERA_Latitude,
+                                                    longitude = ERA_Longitude)
+        ERA_U_SD_id[:]               = ERA.u_SD.sel(latitude  = ERA_Latitude,
+                                                    longitude = ERA_Longitude)
+        ERA_V_id[:]                  = ERA[ V ].sel(latitude  = ERA_Latitude,
+                                                    longitude = ERA_Longitude)
+        ERA_V_SD_id[:]               = ERA.v_SD.sel(latitude  = ERA_Latitude,
+                                                    longitude = ERA_Longitude)
+        ERA_height_low_id[:]          = ERA.height_low.sel(latitude  = ERA_Latitude,
+                                                           longitude = ERA_Longitude)
+        ERA_height_up_id[:]          = ERA.height_up.sel(latitude  = ERA_Latitude,
+                                                          longitude = ERA_Longitude)
+    else:
+        ## pass ERA5 ncdf as is
+        ERA_Height_id[:]             = ERA.height
+        ERA_U_id[:]                  = ERA[ U ]
+        ERA_U_SD_id[:]               = ERA.u_SD
+        ERA_V_id[:]                  = ERA[ V ]
+        ERA_V_SD_id[:]               = ERA.v_SD
+        ERA_height_low_id[:]         = ERA.height_low
+        ERA_height_up_id[:]          = ERA.height_up
 
-
+    ##  dust data
     LIVAS_Altitude_id[:]         = Altitude
     LIVAS_a532nm_PD_id[:]        = Final_PD_a532nm
     LIVAS_a532nm_PD_SD_id[:]     = Final_PD_a532nm_SD
@@ -655,6 +636,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_DOD_532nm_mean[:]      = Final_LIVAS_PD_DOD_532nm
     LIVAS_DOD_532nm_SD[:]        = Final_LIVAS_PD_DOD_532nm_SD
 
+    ## flags coverage
     Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
     Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
     Percentage_IGBP_3_id[:]      = Percentage_IGBP_3
@@ -681,6 +663,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     details        = ERA.details,
                     data_date      = ERA.data_date,
                     contacts       = cnf.OREO.contact_emails,
+                    creation       = format(datetime.now(timezone.utc)),
                     user_host      = os.getlogin() + "@" + os.uname()[1],
                     source_version = VERSION)
     for name, value in my_attrs.items():

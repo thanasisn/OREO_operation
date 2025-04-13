@@ -54,6 +54,7 @@ echo ""
 
 ## ignore errors
 set +e
+export PYTHONUNBUFFERED=1
 
 info "Get raw data from ERA5"
 ascript="./Step_00_get_ERA5_data.py"

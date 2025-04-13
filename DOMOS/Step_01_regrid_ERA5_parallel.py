@@ -25,7 +25,7 @@ import sys
 import re
 import glob
 import calendar
-from   datetime import datetime
+from   datetime import datetime, timezone
 import netCDF4  as nc
 import numpy    as np
 import xarray   as xr
@@ -257,6 +257,7 @@ def process_ERA5_file(filein):
                         details        = stats_message,
                         data_date      = str(sesdate),
                         contacts       = cnf.OREO.contact_emails,
+                        creation       = format(datetime.now(timezone.utc)),
                         user_host      = os.getlogin() + "@" + os.uname()[1],
                         source_version = VERSION)
         for name, value in my_attrs.items():

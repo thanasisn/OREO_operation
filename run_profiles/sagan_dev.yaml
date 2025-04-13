@@ -38,8 +38,8 @@ LIVAS:
     ## location of LIVAS files
     path_lookup:     "/home/folder/LIVAS"
     ## LIVAS levels constant
-    levels:          399
-    height_limit_km: 10
+    levels:           399
+    height_limit_m: 10000
 
 
 OREO:
