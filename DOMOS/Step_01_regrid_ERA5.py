@@ -115,18 +115,19 @@ def regrid():
 
     ##  Iterative calculations  ----------------------------------------------
 
+    coords_3d = (len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level))
     ##  Init target arrays
-    height_lower   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    height_mean    = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    height_upper   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    u_total_N      = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    u_total_SD     = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    u_total_mean   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    u_total_median = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    v_total_N      = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    v_total_SD     = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    v_total_mean   = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
-    v_total_median = np.empty((len(REGRID_lon_centers), len(REGRID_lat_centers), len(DTses.pressure_level)))
+    height_lower   = np.full(coords_3d, np.nan)
+    height_mean    = np.full(coords_3d, np.nan)
+    height_upper   = np.full(coords_3d, np.nan)
+    u_total_N      = np.full(coords_3d, np.nan)
+    u_total_SD     = np.full(coords_3d, np.nan)
+    u_total_mean   = np.full(coords_3d, np.nan)
+    u_total_median = np.full(coords_3d, np.nan)
+    v_total_N      = np.full(coords_3d, np.nan)
+    v_total_SD     = np.full(coords_3d, np.nan)
+    v_total_mean   = np.full(coords_3d, np.nan)
+    v_total_median = np.full(coords_3d, np.nan)
 
     ##  Compute stats in each cell  ------------------------------------------
     for ilon, lon in enumerate(REGRID_lon_centers):
@@ -182,8 +183,8 @@ def regrid():
 
     ##  Define coordinates
     ds.createDimension('latitude',       len(REGRID_lat_centers))
-    ds.createDimension('pressure_level', len(DTses.pressure_level))
     ds.createDimension('longitude',      len(REGRID_lon_centers))
+    ds.createDimension('pressure_level', len(DTses.pressure_level))
     ds.createDimension('time',           1)
     ds.createDimension('time_span',      1)
 
@@ -304,6 +305,7 @@ for filein in filenames:
 
     ##  Limit data time range
     if not cnf.Range.start <= yyyy <= cnf.Range.until:
+        print(f"Year {yyyy} is out of range")
         continue
 
     filesin_C += 1  ## process counter
@@ -365,7 +367,7 @@ for filein in filenames:
                     continue
 
                 ## load ERA5 main file on a xarray
-                DTpre = xr.open_dataset(previous_file[0])
+                DTpre = xr.open_dataset(previous_file)
                 ## keep only December of previous year
                 DTpre = DTpre.sel(valid_time=f"{yyyy - 1}-12-01")
                 ## select main data explicitly

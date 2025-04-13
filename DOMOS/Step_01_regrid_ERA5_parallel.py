@@ -324,7 +324,7 @@ def process_ERA5_file(filein):
                     continue
 
                 ## load ERA5 main file on a xarray
-                DTpre = xr.open_dataset(previous_file[0])
+                DTpre = xr.open_dataset(previous_file)
                 ## keep only December of previous year
                 DTpre = DTpre.sel(valid_time=f"{yyyy - 1}-12-01")
                 ## select main data explicitly
