@@ -20,6 +20,8 @@ import xarray as xr
 import tqdm
 from random import shuffle
 
+
+
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
 import oreo_mod.utils as Ou
@@ -106,9 +108,8 @@ output_path = os.path.join(cnf.OREO.path_output, os.path.basename(os.path.dirnam
 os.makedirs(output_path, exist_ok = True)
 
 
-
 ## !!!
-if TEST: ERA_filenames = [ERA_filenames[0]]
+if TEST: ERA_filenames = ERA_filenames[0:2]
 
 for efid, ERA_file in enumerate(ERA_filenames):
     print(f"\nProcessing: {efid}/{len(ERA_filenames)} {ERA_file}")
@@ -153,7 +154,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ERA_Longitude = ERA_Longitude.where(ERA_Longitude.longitude >= -7.5, drop = True)
         ERA_Latitude  = ERA_Latitude.where( ERA_Latitude.latitude   <=   11, drop = True)
         ERA_Longitude = ERA_Longitude[0:2]
-        ERA_Latitude  = ERA_Latitude [0:3]
+        ERA_Latitude  = ERA_Latitude [0:2]
 
 
     ##  Skip already existing files
@@ -176,8 +177,6 @@ for efid, ERA_file in enumerate(ERA_filenames):
     Final_PD_b532nm_SD          = np.full(coords_3d, np.nan)
     Final_PD_MC                 = np.full(coords_3d, np.nan)
     Final_PD_MC_SD              = np.full(coords_3d, np.nan)
-
-    # Empty_Vertical_array        = np.full(cnf.LIVAS.levels, np.nan)
 
     Percentage_IGBP_1           = np.full(coords_2d, np.nan)
     Percentage_IGBP_2           = np.full(coords_2d, np.nan)
@@ -222,16 +221,27 @@ for efid, ERA_file in enumerate(ERA_filenames):
             comb = np.array(np.meshgrid(Llats, Llons)).T.reshape(-1, 2)
 
             ## !!! TEST do few of LIVAS files
-            if TEST: comb = comb[0:5]
+            if TEST: comb = comb[0:3]
 
             ##  Read a LIVAS file  --------------------------------------------
-            file_counter = 0
+            file_counter = 0  # this is important
+            ec_t = len(ERA_Longitude) * len(ERA_Latitude) # total domain points
+            li_t = comb.shape[0]                          # total cell points
+            ec_c = i_lon + j_lat                          # domain iteration
+            total_it = ec_t * li_t * len(ERA_filenames)   # total iterations
             for LIVAS_lat, LIVAS_lon in comb:
-                ec_c = i_lon + j_lat + 2
-                ec_t = len(ERA_Longitude) * len(ERA_Latitude)
-                li_c = file_counter + 1
-                li_t = comb.shape[0]
-                print(f"\n{efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}]")
+                li_c = file_counter + 1               # count cell iteration
+                curre_it = (efid * ec_t * li_t ) + ((ec_c) * li_t) + li_c # current iteration
+                complete = 100 * curre_it / total_it  # percentage of completeness
+                duration = datetime.now() - tic       # current run duration
+                if complete == 0:
+                    total = duration * 100            # dummy value
+                else:
+                    total = duration * 100 / complete # estimate of total
+                eta      = total - duration
+                eda      = (datetime.now() + eta).replace(microsecond = 0)
+                print(f"\n> {efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}]")
+                print(f"> {ERA_year} {ERA.season} {curre_it}/{total_it} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}\n")
 
                 ##  File to read  ---------------------------------------------
                 LIVAS_file = os.path.join(
@@ -313,7 +323,6 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     Total_LIVAS_PD_MC     = xr.concat([LIVAS_PD_MC,         Total_LIVAS_PD_MC]    , "profile")
                     Total_IGBP            = xr.concat([Total_IGBP,          IGBP]                 , "profile")
                     Total_LIVAS_LR_Dust   = np.concat([Total_LIVAS_LR_Dust, LIVAS_LR_Dust])
-
                 file_counter += 1
             ##  end iterate LIVAS files for this a cell
 
@@ -335,12 +344,15 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
             temp = np.isnan(Total_LIVAS_PD_MC).sum(dim = "profile")
 
-            ## calculate Cloud flags !!! is this doing anything
+            ##  Calculate Cloud flags
             L2_CF_profiles  = len(temp) - len(np.ravel(np.where(temp == cnf.LIVAS.levels)))
 
             ## try catch cases to test
             if TEST and L2_CF_profiles > 0 and L2_CF_profiles != 399:
-                sys.exit("test")
+                print("Found less!")
+
+            ## TODO direct asign
+            Final_Number_of_L2Profiles[i_lon, j_lat] = L2_CF_profiles
 
             ##  Ignore any dust high in the atmosphere  -----------------------
             Total_LIVAS_PD_a532nm[Altitude > cnf.LIVAS.height_limit_m] = np.nan
@@ -365,8 +377,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
             arr[np.isnan(arr)] = 0
             DOD_532nm_SD       = np.trapezoid(Altitude, arr)
 
-
-
+            Final_LIVAS_PD_DOD_532nm[   i_lon, j_lat] = DOD_532nm
+            Final_LIVAS_PD_DOD_532nm_SD[i_lon, j_lat] = DOD_532nm_SD
 
             ## !!! ambiguous assignment, possible needless
             # for count_alt in range(cnf.LIVAS.levels):
@@ -376,7 +388,6 @@ for efid, ERA_file in enumerate(ERA_filenames):
             #     Final_PD_a532nm                         = PD_a532nm[count_alt]
             #     Final_PD_a532nm_SD                      = PD_a532nm_SD[count_alt]
 
-
             Final_PD_MC[        i_lon, j_lat, :] = PD_MC
             Final_PD_MC_SD[     i_lon, j_lat, :] = PD_MC_SD
             Final_PD_a532nm[    i_lon, j_lat, :] = PD_a532nm
@@ -384,29 +395,12 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Final_PD_b532nm[    i_lon, j_lat, :] = PD_b532nm
             Final_PD_b532nm_SD[ i_lon, j_lat, :] = PD_b532nm_SD
 
-
             # Final_PD_MC[   i_lon, j_lat,:] == PD_MC
             # Final_PD_MC[   i_lon, j_lat,:]
             # PD_MC.equals(PD_MC)
             # PD_MC.equals(Final_PD_MC[   i_lon, j_lat,:])
             # PD_MC[ ~np.equal(PD_MC.values, Final_PD_MC[   i_lon, j_lat,:]) ]
             # Final_PD_MC[   i_lon, j_lat, ~np.equal(PD_MC.values, Final_PD_MC[   i_lon, j_lat,:]) ]
-
-            # TT = np.full(coords_3d, np.nan)
-            # TT[ i_lon, j_lat,:] = PD_MC
-            # TT[ i_lon, j_lat,:] == Final_PD_MC[   i_lon, j_lat,:]
-
-
-            # if TEST: sys.exit("wait")
-
-
-            Final_LIVAS_PD_DOD_532nm[   i_lon, j_lat] = DOD_532nm
-            Final_LIVAS_PD_DOD_532nm_SD[i_lon, j_lat] = DOD_532nm_SD
-
-            Final_Number_of_L2Profiles[i_lon, j_lat] = L2_CF_profiles
-
-
-
 
             ##  Compute coverage percentage  ----------------------------------
             len_IGBP = float(len(IGBP))
@@ -436,7 +430,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
     # Altitude = Altitude*1000.0
 
-    # creating file
+    # initialise file
     ds = nc.Dataset(fileout, 'w', format='NETCDF4')
 
     # create dimensions
@@ -507,10 +501,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ERA_V_id.units                  = 'm/s'
     ERA_V_SD_id.units               = 'm/s'
     LIVAS_Altitude_id.units         = 'm'
-    LIVAS_a532nm_PD_id.units        = 'km^-1'
-    LIVAS_a532nm_PD_SD_id.units     = 'km^-1'
-    LIVAS_b532nm_PD_id.units        = 'km^-1 sr^-1'
-    LIVAS_b532nm_PD_SD_id.units     = 'km^-1 sr^-1'
+    LIVAS_a532nm_PD_id.units        = 'km^-1'        # we changed altitude to meters
+    LIVAS_a532nm_PD_SD_id.units     = 'km^-1'        # we changed altitude to meters
+    LIVAS_b532nm_PD_id.units        = 'km^-1 sr^-1'  # we changed altitude to meters
+    LIVAS_b532nm_PD_SD_id.units     = 'km^-1 sr^-1'  # we changed altitude to meters
 
     LIVAS_PD_MC_id.units            = 'micrograms/m^3'
     LIVAS_PD_MC_SD_id.units         = 'micrograms/m^3'
@@ -620,8 +614,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
     Percentage_IGBP_17_id.fill_value     = np.nan
     Percentage_IGBP_18_id.fill_value     = np.nan
 
-    ##  Assign data to variables  ----------------------------------------------
-
+    ##  Assign data to variables  ---------------------------------------------
     lats_id[:]                   = ERA_Latitude
     lons_id[:]                   = ERA_Longitude
 
@@ -698,11 +691,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
         setattr(ds, name, value)
 
     ds.close()
-
     print(f"Written: {fileout}")
-
-    # sys.exit("Good")
-
 
 #  SCRIPT END  ---------------------------------------------------------------
 Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = TRACE)
