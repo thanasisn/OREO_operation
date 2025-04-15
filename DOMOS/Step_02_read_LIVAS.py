@@ -17,10 +17,7 @@ import numpy    as np
 import pandas   as pd
 import numpy.ma as ma
 import xarray as xr
-import tqdm
 from random import shuffle
-
-
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -60,11 +57,11 @@ if SEASONAL == MONTHLY:
     print("Monthly: ", MONTHLY)
     sys.exit("Choose only SEASONAL or only MONTHLY")
 
-
 ##  Check destination folder exists  -----------------------------------------
 if not os.path.isdir(cnf.OREO.path_output):
     sys.exit(f"\nFolder {cnf.OREO.path_output} don't exist !!\n")
 
+##  Resolve working domain  --------------------------------------------------
 fl_North = Oc.border_up(  cnf.D1.North, cnf.D1.MaxLatStep,   90)
 fl_South = Oc.border_down(cnf.D1.South, cnf.D1.MaxLatStep,  -90)
 fl_East  = Oc.border_up(  cnf.D1.East,  cnf.D1.MaxLonStep,  180)
@@ -87,7 +84,7 @@ elif MONTHLY == True:
 
 ERA_filenames.sort()
 ## TEST
-if TEST: shuffle(ERA_filenames)
+shuffle(ERA_filenames)
 
 
 ##  Select ERA5 variables to use by method
@@ -103,10 +100,15 @@ elif cnf.ERA5.data == "median":
 LIVAS_all_lats = np.arange( -89.5,  90)
 LIVAS_all_lons = np.arange(-179.5, 180)
 
+if fl_East  >= LIVAS_all_lons.max() or \
+   fl_West  <= LIVAS_all_lons.min() or \
+   fl_North >= LIVAS_all_lats.max() or \
+   fl_South <= LIVAS_all_lats.min() :
+   sys.exit("Livas files out of bounds, adjust to actual ranges")
+
 ##  Directory path of output datasets  ----------------------------------
 output_path = os.path.join(cnf.OREO.path_output, os.path.basename(os.path.dirname(ERA_filenames[0])))
 os.makedirs(output_path, exist_ok = True)
-
 
 ## !!!
 if TEST: ERA_filenames = ERA_filenames[0:2]
@@ -154,7 +156,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ERA_Longitude = ERA_Longitude.where(ERA_Longitude.longitude >= -7.5, drop = True)
         ERA_Latitude  = ERA_Latitude.where( ERA_Latitude.latitude   <=   11, drop = True)
         ERA_Longitude = ERA_Longitude[0:2]
-        ERA_Latitude  = ERA_Latitude [0:2]
+        ERA_Latitude  = ERA_Latitude [0:3]
 
 
     ##  Skip already existing files
@@ -221,7 +223,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             comb = np.array(np.meshgrid(Llats, Llons)).T.reshape(-1, 2)
 
             ## !!! TEST do few of LIVAS files
-            if TEST: comb = comb[0:3]
+            if TEST: comb = comb[0:4]
 
             ##  Read a LIVAS file  --------------------------------------------
             file_counter = 0  # this is important
@@ -331,27 +333,9 @@ for efid, ERA_file in enumerate(ERA_filenames):
             ##  Count profiles  -----------------------------------------------
             Final_Number_of_Profiles[i_lon, j_lat] = np.shape(Total_LIVAS_PD_MC)[0]
 
-            ## Count data on each level  --------------------------------------
-            # temp =   np.copy(Total_LIVAS_PD_MC)
-            # idx  = ~np.isnan(Total_LIVAS_PD_MC)
-            # temp[idx] = 0
-            # idx  =  np.isnan(Total_LIVAS_PD_MC)
-            # temp[idx] = 1
-            # temp = np.ravel([np.nansum(temp[i,:]) for i in range(np.shape(temp)[0])])
-            # ## TEST before apply, test one step count
-            # if not np.all(temp == np.isnan(Total_LIVAS_PD_MC).sum(dim = "profile")):
-            #     sys.exit("change")
-
-            temp = np.isnan(Total_LIVAS_PD_MC).sum(dim = "profile")
-
-            ##  Calculate Cloud flags
-            L2_CF_profiles  = len(temp) - len(np.ravel(np.where(temp == cnf.LIVAS.levels)))
-
-            ## try catch cases to test
-            if TEST and L2_CF_profiles > 0 and L2_CF_profiles != 399:
-                print("Found less!")
-
-            ## TODO direct asign
+            ##  Count Cloud free profiles -------------------------------------
+            temp = np.isnan(Total_LIVAS_PD_MC).sum(dim = "altitude")
+            L2_CF_profiles  = len(temp) - len(temp[np.where(temp == cnf.LIVAS.levels)])
             Final_Number_of_L2Profiles[i_lon, j_lat] = L2_CF_profiles
 
             ##  Ignore any dust high in the atmosphere  -----------------------
@@ -359,7 +343,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Total_LIVAS_PD_b532nm[Altitude > cnf.LIVAS.height_limit_m] = np.nan
             Total_LIVAS_PD_MC    [Altitude > cnf.LIVAS.height_limit_m] = np.nan
 
-            ##  Create mean vertical profile  ---------------------------------
+            ##  Create mean profile on vertical  ------------------------------
             PD_a532nm    = Total_LIVAS_PD_a532nm.mean(dim = "profile", skipna = True)
             PD_b532nm    = Total_LIVAS_PD_b532nm.mean(dim = "profile", skipna = True)
             PD_MC        = Total_LIVAS_PD_MC    .mean(dim = "profile", skipna = True)
@@ -371,36 +355,24 @@ for efid, ERA_file in enumerate(ERA_filenames):
             ##  Create DOD with vertical integration  -------------------------
             arr = np.copy(PD_a532nm)
             arr[np.isnan(arr)] = 0
-            DOD_532nm          = np.trapezoid(Altitude, arr)
+            ## Altitude in meters Extinction in kilometers
+            DOD_532nm          = np.trapezoid(Altitude / 1000, arr)
 
             arr = np.copy(PD_a532nm_SD)
             arr[np.isnan(arr)] = 0
-            DOD_532nm_SD       = np.trapezoid(Altitude, arr)
+            ## Altitude in meters Extinction in kilometers
+            DOD_532nm_SD       = np.trapezoid(Altitude / 1000, arr)
 
             Final_LIVAS_PD_DOD_532nm[   i_lon, j_lat] = DOD_532nm
             Final_LIVAS_PD_DOD_532nm_SD[i_lon, j_lat] = DOD_532nm_SD
 
-            ## !!! ambiguous assignment, possible needless
-            # for count_alt in range(cnf.LIVAS.levels):
-            #     Final_PD_MC[   i_lon, j_lat, count_alt] = PD_MC   [count_alt]
-            #     Final_PD_MC_SD[i_lon, j_lat, count_alt] = PD_MC_SD[count_alt]
-            #     ## !!! why not all levels
-            #     Final_PD_a532nm                         = PD_a532nm[count_alt]
-            #     Final_PD_a532nm_SD                      = PD_a532nm_SD[count_alt]
-
+            ##  Store vertical distributions  ---------------------------------
             Final_PD_MC[        i_lon, j_lat, :] = PD_MC
             Final_PD_MC_SD[     i_lon, j_lat, :] = PD_MC_SD
-            Final_PD_a532nm[    i_lon, j_lat, :] = PD_a532nm
-            Final_PD_a532nm_SD[ i_lon, j_lat, :] = PD_a532nm_SD
-            Final_PD_b532nm[    i_lon, j_lat, :] = PD_b532nm
-            Final_PD_b532nm_SD[ i_lon, j_lat, :] = PD_b532nm_SD
-
-            # Final_PD_MC[   i_lon, j_lat,:] == PD_MC
-            # Final_PD_MC[   i_lon, j_lat,:]
-            # PD_MC.equals(PD_MC)
-            # PD_MC.equals(Final_PD_MC[   i_lon, j_lat,:])
-            # PD_MC[ ~np.equal(PD_MC.values, Final_PD_MC[   i_lon, j_lat,:]) ]
-            # Final_PD_MC[   i_lon, j_lat, ~np.equal(PD_MC.values, Final_PD_MC[   i_lon, j_lat,:]) ]
+            Final_PD_a532nm[    i_lon, j_lat, :] = PD_a532nm    / 1000.  # 1/km => 1/m
+            Final_PD_a532nm_SD[ i_lon, j_lat, :] = PD_a532nm_SD / 1000.  # 1/km => 1/m
+            Final_PD_b532nm[    i_lon, j_lat, :] = PD_b532nm    / 1000.  # 1/(km sr) => 1/(m sr)
+            Final_PD_b532nm_SD[ i_lon, j_lat, :] = PD_b532nm_SD / 1000.  # 1/(km sr) => 1/(m sr)
 
             ##  Compute coverage percentage  ----------------------------------
             len_IGBP = float(len(IGBP))
@@ -422,13 +394,18 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Percentage_IGBP_16[i_lon, j_lat] = np.divide(np.count_nonzero(IGBP == 16), len_IGBP) * 100
             Percentage_IGBP_17[i_lon, j_lat] = np.divide(np.count_nonzero(IGBP == 17), len_IGBP) * 100
             Percentage_IGBP_18[i_lon, j_lat] = np.divide(np.count_nonzero(IGBP == 18), len_IGBP) * 100
-            ## was: (np.divide(float(np.count_nonzero(IGBP ==  1)),float(len(IGBP))))*100.0
-    ## END iteration on the whole domain
+
+            ##  Check coverage percentage consistency  ------------------------
+            adder = 0.0
+            for i in range(1, 19):
+                adder += globals()[f"Percentage_IGBP_{i}"][i_lon, j_lat]
+            print(f"Area coverage {adder}")
+            if abs(adder - 100) > 1:
+                sys.exit("Inconsistent coverage")
+    ## END iteration on the whole ERA5 domain
 
 
     ##  Saving dataset as NetCDF ----------------------------------------------
-
-    # Altitude = Altitude*1000.0
 
     # initialise file
     ds = nc.Dataset(fileout, 'w', format='NETCDF4')
@@ -440,15 +417,13 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ds.createDimension('lon',         len(ERA_Longitude))
 
     ## create groups
-    Geolocation_group         = ds.createGroup("Geolocation")
     ERA5_group                = ds.createGroup("ERA5")
     LIVAS_group               = ds.createGroup("LIVAS")
-    # CALIPSO_group             = ds.createGroup("CALIPSO")
     Land_Ocean_Mask_group     = ds.createGroup("Land_Ocean_Mask")
 
     ## create variables
-    lats_id                   = ds.createVariable('Geolocation/Latitude',  'f4', ('lat',))
-    lons_id                   = ds.createVariable('Geolocation/Longitude', 'f4', ('lon',))
+    lats_id                   = ds.createVariable('Latitude',  'f4', ('lat',))
+    lons_id                   = ds.createVariable('Longitude', 'f4', ('lon',))
 
     ERA_U_id                  = ds.createVariable('ERA5/U',          np.float64, ('lon','lat','ERA_lev',), zlib=True)
     ERA_U_SD_id               = ds.createVariable('ERA5/U_SD',       np.float64, ('lon','lat','ERA_lev',), zlib=True)
@@ -458,7 +433,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ERA_Height_id             = ds.createVariable('ERA5/height',     np.float64, ('lon','lat','ERA_lev',), zlib=True)
     ERA_height_up_id          = ds.createVariable('ERA5/height_up',  np.float64, ('lon','lat','ERA_lev',), zlib=True)
 
-    LIVAS_Altitude_id         = ds.createVariable('LIVAS/Altitude',                      'f4',        ('CALIPSO_lev',), zlib=True)
+    LIVAS_Altitude_id         = ds.createVariable('LIVAS/Altitude',                      'f4',                    ('CALIPSO_lev',), zlib=True)
     LIVAS_a532nm_PD_id        = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_a532nm',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
     LIVAS_a532nm_PD_SD_id     = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_a532nm_STD',  np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
     LIVAS_b532nm_PD_id        = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_b532nm',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
@@ -501,10 +476,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ERA_V_id.units                  = 'm/s'
     ERA_V_SD_id.units               = 'm/s'
     LIVAS_Altitude_id.units         = 'm'
-    LIVAS_a532nm_PD_id.units        = 'km^-1'        # we changed altitude to meters
-    LIVAS_a532nm_PD_SD_id.units     = 'km^-1'        # we changed altitude to meters
-    LIVAS_b532nm_PD_id.units        = 'km^-1 sr^-1'  # we changed altitude to meters
-    LIVAS_b532nm_PD_SD_id.units     = 'km^-1 sr^-1'  # we changed altitude to meters
+    LIVAS_a532nm_PD_id.units        = '1/m'       # we changed altitude to meters
+    LIVAS_a532nm_PD_SD_id.units     = '1/m'       # we changed altitude to meters
+    LIVAS_b532nm_PD_id.units        = '1/(m sr)'  # we changed altitude to meters
+    LIVAS_b532nm_PD_SD_id.units     = '1/(m sr)'  # we changed altitude to meters
 
     LIVAS_PD_MC_id.units            = 'micrograms/m^3'
     LIVAS_PD_MC_SD_id.units         = 'micrograms/m^3'
@@ -581,20 +556,17 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ERA_U_SD_id.fill_value               = np.nan
     ERA_V_id.fill_value                  = np.nan
     ERA_V_SD_id.fill_value               = np.nan
-
     LIVAS_Altitude_id.fill_value         = np.nan
     LIVAS_a532nm_PD_id.fill_value        = np.nan
     LIVAS_a532nm_PD_SD_id.fill_value     = np.nan
     LIVAS_b532nm_PD_id.fill_value        = np.nan
     LIVAS_b532nm_PD_SD_id.fill_value     = np.nan
-
     LIVAS_PD_MC_id.fill_value            = np.nan
     LIVAS_PD_MC_SD_id.fill_value         = np.nan
     LIVAS_N_of_CF_Profiles_id.fill_value = np.nan
     LIVAS_N_of_Profiles_id.fill_value    = np.nan
     LIVAS_DOD_532nm_mean.fill_value      = np.nan
     LIVAS_DOD_532nm_SD.fill_value        = np.nan
-
     Percentage_IGBP_1_id.fill_value      = np.nan
     Percentage_IGBP_2_id.fill_value      = np.nan
     Percentage_IGBP_3_id.fill_value      = np.nan
