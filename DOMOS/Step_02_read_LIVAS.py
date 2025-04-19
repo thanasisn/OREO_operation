@@ -36,8 +36,8 @@ TRACE = Ou.source_code_hash(__file__)
 ##  Set switches  ------------------------------------------------------------
 
 ##  Overwrite output files
-FORCE = cnf.mode.Force
 FORCE = True
+FORCE = cnf.mode.Force
 
 ##  Export by each month
 MONTHLY  = False
@@ -100,19 +100,21 @@ elif cnf.ERA5.data == "median":
 LIVAS_all_lats = np.arange( -89.5,  90)
 LIVAS_all_lons = np.arange(-179.5, 180)
 
+##  Make sure we include all LIVAS point within the domain  -------------------
 if fl_East  >= LIVAS_all_lons.max() or \
    fl_West  <= LIVAS_all_lons.min() or \
    fl_North >= LIVAS_all_lats.max() or \
    fl_South <= LIVAS_all_lats.min() :
    sys.exit("Livas files out of bounds, adjust to actual ranges")
 
-##  Directory path of output datasets  ----------------------------------
+##  Directory path of output datasets  ----------------------------------------
 output_path = os.path.join(cnf.OREO.path_output, os.path.basename(os.path.dirname(ERA_filenames[0])))
 os.makedirs(output_path, exist_ok = True)
 
-## !!!
+## !!! Few files for tests
 if TEST: ERA_filenames = ERA_filenames[0:2]
 
+##  Iterate over all regrided ERA files  -------------------------------------
 for efid, ERA_file in enumerate(ERA_filenames):
     print(f"\nProcessing: {efid}/{len(ERA_filenames)} {ERA_file}")
 
@@ -169,6 +171,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
     ##  Create structures to gather data for the domain  ---------------------
     Final_Number_of_Profiles    = np.full(coords_2d, np.nan)
+    Total_Number_of_Profiles    = np.full(coords_2d, np.nan)
     Final_Number_of_L2Profiles  = np.full(coords_2d, np.nan)
     Final_LIVAS_PD_DOD_532nm    = np.full(coords_2d, np.nan)
     Final_LIVAS_PD_DOD_532nm_SD = np.full(coords_2d, np.nan)
@@ -205,10 +208,14 @@ for efid, ERA_file in enumerate(ERA_filenames):
     # for lat, lon in coords:
     #     print(lat, lon)
 
+    ##  Iterate over all points in ERA5 files  --------------------------------
     for i_lon, lon in enumerate(ERA_Longitude.values):
         for j_lat, lat in enumerate(ERA_Latitude.values):
-
-            ##  create list of all LIVAS coords to use for this cell
+           
+            file_counter    = 0  # this is important for the logic
+            profile_counter = 0  # just for statistics 
+            
+            ##  List of all LIVAS coords to use for this cell  ----------------
             Llats = LIVAS_all_lats[np.logical_and(
                 LIVAS_all_lats > lat - (cnf.D1.LatStep / 2),
                 LIVAS_all_lats < lat + (cnf.D1.LatStep / 2)
@@ -226,20 +233,19 @@ for efid, ERA_file in enumerate(ERA_filenames):
             if TEST: comb = comb[0:4]
 
             ##  Read a LIVAS file  --------------------------------------------
-            file_counter = 0  # this is important
-            ec_t = len(ERA_Longitude) * len(ERA_Latitude) # total domain points
-            li_t = comb.shape[0]                          # total cell points
-            ec_c = i_lon + j_lat                          # domain iteration
-            total_it = ec_t * li_t * len(ERA_filenames)   # total iterations
+            ec_t = len(ERA_Longitude) * len(ERA_Latitude)                  # total domain points
+            li_t = comb.shape[0]                                           # total cell points
+            ec_c = i_lon + j_lat                                           # domain iteration
+            total_it = ec_t * li_t * len(ERA_filenames)                    # total iterations
             for LIVAS_lat, LIVAS_lon in comb:
-                li_c = file_counter + 1               # count cell iteration
-                curre_it = (efid * ec_t * li_t ) + ((ec_c) * li_t) + li_c # current iteration
-                complete = 100 * curre_it / total_it  # percentage of completeness
-                duration = datetime.now() - tic       # current run duration
+                li_c = file_counter + 1                                    # count cell iteration
+                curre_it = (efid * ec_t * li_t ) + ((ec_c) * li_t) + li_c  # current iteration
+                complete = 100 * curre_it / total_it                       # percentage of completeness
+                duration = datetime.now() - tic                            # current run duration
                 if complete == 0:
-                    total = duration * 100            # dummy value
+                    total = duration * 100                                 # dummy duration value
                 else:
-                    total = duration * 100 / complete # estimate of total
+                    total = duration * 100 / complete                      # estimate of total duration
                 eta      = total - duration
                 eda      = (datetime.now() + eta).replace(microsecond = 0)
                 print(f"\n> {efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}]")
@@ -274,8 +280,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 ## Date range of matching LIVAS data
                 # print(f"    LIVAS date range: {LIVAS.Profile_Time_Parsed[id_date_range].min().values} -- {LIVAS.Profile_Time_Parsed[id_date_range].max().values}")
                 ## Profiles in each file for this cell
-                # print(f"    Count: {(id_date_range).sum()}")
-
+                # print(f"    Count: {id_date_range.sum()}")
+                
                 ##  Get data selection from LIVAS  ----------------------------
                 ## BEWARE some variables are in km in LIVAS files
                 Altitude = LIVAS.Altitude * 1000  ## Convert to meters
@@ -304,6 +310,9 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 idx = np.where(LIVAS_PD_b532nm == 0)
                 LIVAS_PD_a532nm[idx] = 0
                 LIVAS_PD_MC    [idx] = 0
+                
+                ##  Count total profiles in the cell  -------------------------
+                profile_counter += id_date_range.sum()
 
                 ##  Resolve masked array cases  -------------------------------
                 if ma.isMaskedArray(LIVAS_PD_b532nm) == True:
@@ -332,6 +341,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
             ##  Count profiles  -----------------------------------------------
             Final_Number_of_Profiles[i_lon, j_lat] = np.shape(Total_LIVAS_PD_MC)[0]
+            Total_Number_of_Profiles[i_lon, j_lat] = profile_counter 
 
             ##  Count Cloud free profiles -------------------------------------
             temp = np.isnan(Total_LIVAS_PD_MC).sum(dim = "altitude")
@@ -443,6 +453,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
     LIVAS_N_of_CF_Profiles_id = ds.createVariable('LIVAS/Flags/Number_of_L2_CF_Profiles', np.float64, ('lon','lat',), zlib=True)
     LIVAS_N_of_Profiles_id    = ds.createVariable('LIVAS/Flags/Number_of_L2_Profiles',    np.float64, ('lon','lat',), zlib=True)
+    LIVAS_total_Profiles_id   = ds.createVariable('LIVAS/Flags/Total_L2_Profiles_N',      np.float64, ('lon','lat',), zlib=True)
     LIVAS_DOD_532nm_mean      = ds.createVariable('LIVAS/Pure_Dust/DOD_532nm_mean',       np.float64, ('lon','lat',), zlib=True)
     LIVAS_DOD_532nm_SD        = ds.createVariable('LIVAS/Pure_Dust/DOD_532nm_STD',        np.float64, ('lon','lat',), zlib=True)
 
@@ -529,6 +540,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
     LIVAS_N_of_CF_Profiles_id.long_name = 'Number of CALIPSO L2 5km Cloud Free Profiles'
     LIVAS_N_of_Profiles_id.long_name    = 'Number of CALIPSO L2 5km Profiles'
+    LIVAS_total_Profiles_id.long_name   = 'Number of profiles in the ERA5 cell'
 
     Percentage_IGBP_1_id.long_name      = 'Evergreen-Needleleaf-Forest'
     Percentage_IGBP_2_id.long_name      = 'Evergreen-Broadleaf-Forest'
@@ -628,7 +640,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_N_of_Profiles_id[:]    = Final_Number_of_Profiles
     LIVAS_DOD_532nm_mean[:]      = Final_LIVAS_PD_DOD_532nm
     LIVAS_DOD_532nm_SD[:]        = Final_LIVAS_PD_DOD_532nm_SD
-
+    LIVAS_total_Profiles_id[:]   = Total_Number_of_Profiles
+    
     ## flags coverage
     Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
     Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
