@@ -19,6 +19,10 @@ import numpy.ma as ma
 import xarray as xr
 from random import shuffle
 
+# import matplotlib as plt
+import matplotlib.pyplot as plt
+
+
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
 import oreo_mod.utils as Ou
@@ -50,6 +54,7 @@ SEASONAL = cnf.D1.Seasonal
 ##  Reduce work for testing
 TEST = False
 TEST = cnf.mode.Test
+TEST = True
 
 ##  Allow only one case to run at the time  ----------------------------------
 if SEASONAL == MONTHLY:
@@ -84,7 +89,8 @@ elif MONTHLY == True:
 
 ERA_filenames.sort()
 ## TEST
-shuffle(ERA_filenames)
+# shuffle(ERA_filenames)
+
 
 
 ##  Select ERA5 variables to use by method
@@ -111,8 +117,9 @@ if fl_East  >= LIVAS_all_lons.max() or \
 output_path = os.path.join(cnf.OREO.path_output, os.path.basename(os.path.dirname(ERA_filenames[0])))
 os.makedirs(output_path, exist_ok = True)
 
+# ERA_filenames[1]
 ## !!! Few files for tests
-if TEST: ERA_filenames = ERA_filenames[0:2]
+if TEST: ERA_filenames = ERA_filenames[1:2]
 
 ##  Iterate over all regrided ERA files  -------------------------------------
 for efid, ERA_file in enumerate(ERA_filenames):
@@ -155,10 +162,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ## doing just a part of the ERA file
         fileout  = fileout.replace(".nc", "_TEST.nc")
         ## create a subdomain for testing
-        ERA_Longitude = ERA_Longitude.where(ERA_Longitude.longitude >= -7.5, drop = True)
-        ERA_Latitude  = ERA_Latitude.where( ERA_Latitude.latitude   <=   11, drop = True)
-        ERA_Longitude = ERA_Longitude[0:2]
-        ERA_Latitude  = ERA_Latitude [0:3]
+        ERA_Longitude = ERA_Longitude.where(ERA_Longitude.longitude >= -37.5, drop = True)
+        ERA_Latitude  = ERA_Latitude.where( ERA_Latitude.latitude   <=  13,   drop = True)
+        ERA_Longitude = ERA_Longitude[0:1]
+        ERA_Latitude  = ERA_Latitude [0:1]
 
 
     ##  Skip already existing files
@@ -211,10 +218,11 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ##  Iterate over all points in ERA5 files  --------------------------------
     for i_lon, lon in enumerate(ERA_Longitude.values):
         for j_lat, lat in enumerate(ERA_Latitude.values):
-           
+
             file_counter    = 0  # this is important for the logic
-            profile_counter = 0  # just for statistics 
-            
+            file_counter_2    = 0
+            profile_counter = 0  # just for statistics
+
             ##  List of all LIVAS coords to use for this cell  ----------------
             Llats = LIVAS_all_lats[np.logical_and(
                 LIVAS_all_lats > lat - (cnf.D1.LatStep / 2),
@@ -230,7 +238,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             comb = np.array(np.meshgrid(Llats, Llons)).T.reshape(-1, 2)
 
             ## !!! TEST do few of LIVAS files
-            if TEST: comb = comb[0:4]
+            # if TEST: comb = comb[0:4]
 
             ##  Read a LIVAS file  --------------------------------------------
             ec_t = len(ERA_Longitude) * len(ERA_Latitude)                  # total domain points
@@ -249,12 +257,13 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 eta      = total - duration
                 eda      = (datetime.now() + eta).replace(microsecond = 0)
                 print(f"\n> {efid}/{len(ERA_filenames)} {ec_c}/{ec_t} {li_c}/{li_t} [{lat} {lon}] <- [{LIVAS_lat} {LIVAS_lon}]")
-                print(f"> {ERA_year} {ERA.season} {curre_it}/{total_it} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}\n")
+                print(f"> {ERA_year} {ERA.season} {curre_it}/{total_it} {complete:6.2f}% D: {format(duration)} R: {format(eta)} F: {eda}")
 
                 ##  File to read  ---------------------------------------------
                 LIVAS_file = os.path.join(
                     cnf.LIVAS.path_lookup,
                     f"LIVAS_CALIPSO_L2_Grid_lon_c_{str(LIVAS_lon)}_lat_c_{str(LIVAS_lat)}.nc")
+                print(f"> {LIVAS_file}\n")
 
                 ##  Skip missing LIVAS files or issue an error  ---------------
                 if not os.path.exists(LIVAS_file):
@@ -265,12 +274,14 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     else:
                         sys.exit(amsg)
 
-                ##  Load LIVAS file  ------------------------------------------
+                ##  Load LIVAS file xarray  -----------------------------------
                 LIVAS         = xr.open_datatree(LIVAS_file)
 
                 ##  Create a selection index of profile dates
                 id_date_range = (pd.DatetimeIndex(LIVAS.Profile_Time_Parsed).year.isin(  YoI ) &
                                  pd.DatetimeIndex(LIVAS.Profile_Time_Parsed).month.isin( MoI ) )
+
+                id_profiles   = LIVAS.profile[id_date_range]
 
                 ##  Skip files without usable data  ---------------------------
                 if (id_date_range).sum() == 0:
@@ -278,89 +289,205 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     continue
 
                 ## Date range of matching LIVAS data
-                # print(f"    LIVAS date range: {LIVAS.Profile_Time_Parsed[id_date_range].min().values} -- {LIVAS.Profile_Time_Parsed[id_date_range].max().values}")
+                print(f"    LIVAS date range: {LIVAS.Profile_Time_Parsed[id_date_range].min().values} -- {LIVAS.Profile_Time_Parsed[id_date_range].max().values}")
                 ## Profiles in each file for this cell
-                # print(f"    Count: {id_date_range.sum()}")
-                
+                print(f"    Count: {id_date_range.sum()}")
+
                 ##  Get data selection from LIVAS  ----------------------------
                 ## BEWARE some variables are in km in LIVAS files
                 Altitude = LIVAS.Altitude * 1000  ## Convert to meters
-                IGBP     = LIVAS.CALIPSO_Flags_and_Auxiliary.Auxiliary.IGBP_Surface_Type
+                IGBP_N   = LIVAS.CALIPSO_Flags_and_Auxiliary.Auxiliary.IGBP_Surface_Type
 
                 ##  Will exclude data with negative altitude
                 id_negative_altitude = Altitude < 0
 
                 ##  Select date range and NaN for negative altitude
-                LIVAS_PD_b532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Backscatter_Coefficient_532.sel(
-                    profile = id_date_range)
-                LIVAS_PD_b532nm = xr.where(id_negative_altitude, np.nan, LIVAS_PD_b532nm)
+                LIVAS_PD_b532nm_N = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Backscatter_Coefficient_532.sel(
+                    profile = id_profiles)
+                LIVAS_PD_b532nm_N = xr.where(id_negative_altitude, np.nan, LIVAS_PD_b532nm_N)
 
-                LIVAS_PD_a532nm = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Extinction_Coefficient_532.sel(
-                    profile = id_date_range)
-                LIVAS_PD_a532nm = xr.where(id_negative_altitude, np.nan, LIVAS_PD_a532nm)
+                LIVAS_PD_a532nm_N = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Optical_Products.Pure_Dust_Extinction_Coefficient_532.sel(
+                    profile = id_profiles)
+                LIVAS_PD_a532nm_N = xr.where(id_negative_altitude, np.nan, LIVAS_PD_a532nm_N)
 
-                LIVAS_PD_MC     = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Mass_Concentrations.Pure_Dust_Mass_Concentration.sel(
+                LIVAS_PD_MC_N     = LIVAS.LIVAS.Cloud_Free.Pure_Dust_and_Fine_Coarse.Mass_Concentrations.Pure_Dust_Mass_Concentration.sel(
                     profile = id_date_range)
-                LIVAS_PD_MC = xr.where(id_negative_altitude, np.nan, LIVAS_PD_MC)
+                LIVAS_PD_MC_N = xr.where(id_negative_altitude, np.nan, LIVAS_PD_MC_N)
 
-                LIVAS_LR_Dust   = np.unique(LIVAS.LIVAS.Auxiliary.Lidar_Ratio_Assumptions.Lidar_Ratio_Dust.sel(
+                LIVAS_LR_Dust_N   = np.unique(LIVAS.LIVAS.Auxiliary.Lidar_Ratio_Assumptions.Lidar_Ratio_Dust.sel(
                     profile = id_date_range))
 
-                ##  Set extinction and mass to zero when no backscatter  ------
-                idx = np.where(LIVAS_PD_b532nm == 0)
-                LIVAS_PD_a532nm[idx] = 0
-                LIVAS_PD_MC    [idx] = 0
-                
+                # ##  Set extinction and mass to zero when no backscatter  ------
+                LIVAS_PD_a532nm_N = LIVAS_PD_a532nm_N.where(LIVAS_PD_b532nm_N != 0.0, 0)
+                LIVAS_PD_MC_N     = LIVAS_PD_MC_N.    where(LIVAS_PD_b532nm_N != 0.0, 0)
+
+
                 ##  Count total profiles in the cell  -------------------------
                 profile_counter += id_date_range.sum()
 
                 ##  Resolve masked array cases  -------------------------------
-                if ma.isMaskedArray(LIVAS_PD_b532nm) == True:
+                if ma.isMaskedArray(LIVAS_PD_b532nm_N) == True:
                     print("A masked array found and applied")
-                    LIVAS_PD_a532nm[LIVAS_PD_b532nm.mask == True] = np.nan
-                    LIVAS_PD_b532nm[LIVAS_PD_b532nm.mask == True] = np.nan
-                    LIVAS_PD_MC[    LIVAS_PD_b532nm.mask == True] = np.nan
+                    LIVAS_PD_a532nm_N[LIVAS_PD_b532nm_N.mask == True] = np.nan
+                    LIVAS_PD_b532nm_N[LIVAS_PD_b532nm_N.mask == True] = np.nan
+                    LIVAS_PD_MC_N[    LIVAS_PD_b532nm_N.mask == True] = np.nan
 
                 ##  Gather data for this cell  --------------------------------
+                ## change
                 if file_counter == 0:
-                    Total_LIVAS_PD_a532nm = LIVAS_PD_a532nm
-                    Total_LIVAS_PD_b532nm = LIVAS_PD_b532nm
-                    Total_LIVAS_PD_MC     = LIVAS_PD_MC
-                    Total_IGBP            = IGBP
-                    Total_LIVAS_LR_Dust   = LIVAS_LR_Dust
+                    Total_LIVAS_PD_a532nm_N = LIVAS_PD_a532nm_N
+                    Total_LIVAS_PD_b532nm_N = LIVAS_PD_b532nm_N
+                    Total_LIVAS_PD_MC_N     = LIVAS_PD_MC_N
+                    Total_IGBP_N            = IGBP_N
+                    Total_LIVAS_LR_Dust_N   = LIVAS_LR_Dust_N
                 else:
-                    Total_LIVAS_PD_a532nm = xr.concat([LIVAS_PD_a532nm,     Total_LIVAS_PD_a532nm], "profile")
-                    Total_LIVAS_PD_b532nm = xr.concat([LIVAS_PD_b532nm,     Total_LIVAS_PD_b532nm], "profile")
-                    Total_LIVAS_PD_MC     = xr.concat([LIVAS_PD_MC,         Total_LIVAS_PD_MC]    , "profile")
-                    Total_IGBP            = xr.concat([Total_IGBP,          IGBP]                 , "profile")
-                    Total_LIVAS_LR_Dust   = np.concat([Total_LIVAS_LR_Dust, LIVAS_LR_Dust])
+                    Total_LIVAS_PD_a532nm_N = xr.concat([Total_LIVAS_PD_a532nm_N, LIVAS_PD_a532nm_N,  ], "profile")
+                    Total_LIVAS_PD_b532nm_N = xr.concat([Total_LIVAS_PD_b532nm_N, LIVAS_PD_b532nm_N,  ], "profile")
+                    Total_LIVAS_PD_MC_N     = xr.concat([Total_LIVAS_PD_MC_N,     LIVAS_PD_MC_N,      ], "profile")
+                    Total_IGBP_N            = xr.concat([Total_IGBP_N,            IGBP_N]              , "profile")
+                    Total_LIVAS_LR_Dust_N   = np.concat([Total_LIVAS_LR_Dust_N,   LIVAS_LR_Dust_N])
                 file_counter += 1
+
+
+                # ## use old method ------------------------------------------------
+                # LIVAS_dataset       = nc.Dataset(LIVAS_file)
+                # Profile_Time_Parsed = LIVAS_dataset['/Profile_Time_Parsed'][:]
+                # Months    = np.empty((len(Profile_Time_Parsed)))
+                # Years     = np.empty((len(Profile_Time_Parsed)))
+                # Months[:] = np.nan
+                # Years[:]  = np.nan
+
+                # for count_time,time in enumerate(Profile_Time_Parsed):
+                #     time = time.split(' ')[0]
+                #     Months[count_time] = int(time.split('-')[1])
+                #     Years[count_time]  = int(time.split('-')[0])
+                # idx = np.where( (MoI[0] == Months) & (YoI[0] == Years) | (MoI[1] == Months) & (YoI[1] == Years) | (MoI[2] == Months) & (YoI[2] == Years) )
+                # idx = np.ravel(idx)
+                # if (len(idx) == 0) | (len(idx) == 1):
+                #     continue
+
+
+                # Altitude        = LIVAS_dataset['/Altitude'][:]
+                # LIVAS_PD_b532nm = LIVAS_dataset['/LIVAS/Cloud_Free/Pure_Dust_and_Fine_Coarse/Optical_Products/Pure_Dust_Backscatter_Coefficient_532'][idx,:]
+                # LIVAS_PD_a532nm = LIVAS_dataset['/LIVAS/Cloud_Free/Pure_Dust_and_Fine_Coarse/Optical_Products/Pure_Dust_Extinction_Coefficient_532'][idx,:]
+                # LIVAS_PD_MC     = LIVAS_dataset['/LIVAS/Cloud_Free/Pure_Dust_and_Fine_Coarse/Mass_Concentrations/Pure_Dust_Mass_Concentration'][idx,:]
+                # IGBP            = LIVAS_dataset['/CALIPSO_Flags_and_Auxiliary/Auxiliary/IGBP_Surface_Type'][:]
+
+                # idx = np.where(LIVAS_PD_b532nm == 0)
+                # LIVAS_PD_a532nm[idx] = 0
+                # LIVAS_PD_MC[idx]     = 0
+
+
+                # if not np.array_equal(LIVAS_PD_a532nm_N.values,  np.transpose(LIVAS_PD_a532nm.data), equal_nan = True):
+                #     sys.exit("DDd")
+
+                # if not np.array_equal(LIVAS_PD_b532nm_N.values,  np.transpose(LIVAS_PD_b532nm.data), equal_nan = True):
+                #     sys.exit("DDggd")
+
+
+
+                ## create subsection
+
+                # if ma.isMaskedArray(LIVAS_PD_b532nm) == True:
+                #     LIVAS_PD_a532nm[LIVAS_PD_b532nm.mask == True ] = np.nan
+                #     LIVAS_PD_MC[LIVAS_PD_b532nm.mask == True ]     = np.nan
+
+                # if file_counter_2 >  0:
+                #     Total_LIVAS_PD_a532nm = np.vstack([LIVAS_PD_a532nm, Total_LIVAS_PD_a532nm])
+                #     Total_LIVAS_PD_MC     = np.vstack([LIVAS_PD_MC, Total_LIVAS_PD_MC])
+                #     Total_IGBP            = np.hstack([Total_IGBP, IGBP])
+
+                #     ## TODO also aggregate value 2 of surface_Elevation_Statistics type 0 and 2 (min and mean)
+
+                # if file_counter_2 == 0:
+                #     Total_LIVAS_PD_a532nm = LIVAS_PD_a532nm
+                #     Total_LIVAS_PD_MC     = LIVAS_PD_MC
+                #     Total_IGBP            = IGBP
+
+                # file_counter_2 += 1
+
+
+
+
             ##  end iterate LIVAS files for this a cell
 
             ##  Prepare selected data for cell  -------------------------------
 
             ##  Count profiles  -----------------------------------------------
-            Final_Number_of_Profiles[i_lon, j_lat] = np.shape(Total_LIVAS_PD_MC)[0]
-            Total_Number_of_Profiles[i_lon, j_lat] = profile_counter 
+
+            Final_Number_of_Profiles[i_lon, j_lat] = np.shape(Total_LIVAS_PD_MC_N)[1]  ## TODO remove var
+            Total_Number_of_Profiles[i_lon, j_lat] = profile_counter
+
 
             ##  Count Cloud free profiles -------------------------------------
-            temp = np.isnan(Total_LIVAS_PD_MC).sum(dim = "altitude")
+            temp = np.isnan(Total_LIVAS_PD_MC_N).sum(dim = "altitude")
             L2_CF_profiles  = len(temp) - len(temp[np.where(temp == cnf.LIVAS.levels)])
             Final_Number_of_L2Profiles[i_lon, j_lat] = L2_CF_profiles
 
             ##  Ignore any dust high in the atmosphere  -----------------------
-            Total_LIVAS_PD_a532nm[Altitude > cnf.LIVAS.height_limit_m] = np.nan
-            Total_LIVAS_PD_b532nm[Altitude > cnf.LIVAS.height_limit_m] = np.nan
-            Total_LIVAS_PD_MC    [Altitude > cnf.LIVAS.height_limit_m] = np.nan
+            Total_LIVAS_PD_a532nm_N[Altitude > cnf.LIVAS.height_limit_m] = np.nan
+            Total_LIVAS_PD_b532nm_N[Altitude > cnf.LIVAS.height_limit_m] = np.nan
+            Total_LIVAS_PD_MC_N    [Altitude > cnf.LIVAS.height_limit_m] = np.nan
+            ## also drop data
+            ## mean value  of mins
+
+
+            for i in range(0,399) :
+                print(i, np.nanmean(Total_LIVAS_PD_a532nm_N[i,:]))
+
+            for i in range(0,399) :
+                print(i, np.nanmean(Total_LIVAS_PD_b532nm_N[i,:]))
+
+            # PD_a532nm    = np.nanmean(Total_LIVAS_PD_a532nm_N,axis = 0)
+            # PD_MC        = np.nanmean(Total_LIVAS_PD_MC_N,    axis = 0)
+            # PD_MC_SD     = np.nanstd(Total_LIVAS_PD_MC_N,     axis = 0, ddof = 1)
+            # PD_a532nm_SD = np.nanstd(Total_LIVAS_PD_a532nm_N, axis = 0, ddof = 1)
+
+            ## add mean elevalation of mean
+            ## add SD elevation
+            ## add mean value of mins
+
+            ## re add fine mode and coarse mode for a b MC in new
+
+            ## fix shift in plots
+
+
+
 
             ##  Create mean profile on vertical  ------------------------------
-            PD_a532nm    = Total_LIVAS_PD_a532nm.mean(dim = "profile", skipna = True)
-            PD_b532nm    = Total_LIVAS_PD_b532nm.mean(dim = "profile", skipna = True)
-            PD_MC        = Total_LIVAS_PD_MC    .mean(dim = "profile", skipna = True)
+            PD_a532nm    = Total_LIVAS_PD_a532nm_N.mean(dim = "profile", skipna = True)
+            PD_b532nm    = Total_LIVAS_PD_b532nm_N.mean(dim = "profile", skipna = True)
+            PD_MC        = Total_LIVAS_PD_MC_N    .mean(dim = "profile", skipna = True)
 
-            PD_a532nm_SD = Total_LIVAS_PD_a532nm.std(dim = "profile", skipna = True, ddof = 1)
-            PD_b532nm_SD = Total_LIVAS_PD_b532nm.std(dim = "profile", skipna = True, ddof = 1)
-            PD_MC_SD     = Total_LIVAS_PD_MC    .std(dim = "profile", skipna = True, ddof = 1)
+            PD_a532nm_SD = Total_LIVAS_PD_a532nm_N.std(dim = "profile", skipna = True, ddof = 1)
+            PD_b532nm_SD = Total_LIVAS_PD_b532nm_N.std(dim = "profile", skipna = True, ddof = 1)
+            PD_MC_SD     = Total_LIVAS_PD_MC_N    .std(dim = "profile", skipna = True, ddof = 1)
+
+
+            # Plotting
+            plt.figure(figsize=(6, 8))
+
+            plt.xlim(0, 0.25)
+            # plt.ylim(0, 10)
+
+            upper = PD_a532nm + PD_a532nm_SD
+            lower = PD_a532nm - PD_a532nm_SD
+            plt.fill_betweenx(Altitude, lower, upper, color='blue', alpha=0.3)
+            plt.plot(PD_a532nm, Altitude)
+            plt.xlabel("a 532 nm [km-1]")
+            plt.ylabel("Altitude (km)")
+            plt.grid(True)
+            plt.show()
+
+
+
+
+
+
+
+
+            sys.exit("ww")
+
 
             ##  Create DOD with vertical integration  -------------------------
             arr = np.copy(PD_a532nm)
@@ -376,6 +503,14 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Final_LIVAS_PD_DOD_532nm[   i_lon, j_lat] = DOD_532nm
             Final_LIVAS_PD_DOD_532nm_SD[i_lon, j_lat] = DOD_532nm_SD
 
+            PD_a532nm.plot()
+
+            PD_b532nm.plot()
+
+            PD_MC.plot()
+
+
+
             ##  Store vertical distributions  ---------------------------------
             Final_PD_MC[        i_lon, j_lat, :] = PD_MC
             Final_PD_MC_SD[     i_lon, j_lat, :] = PD_MC_SD
@@ -383,6 +518,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Final_PD_a532nm_SD[ i_lon, j_lat, :] = PD_a532nm_SD / 1000.  # 1/km => 1/m
             Final_PD_b532nm[    i_lon, j_lat, :] = PD_b532nm    / 1000.  # 1/(km sr) => 1/(m sr)
             Final_PD_b532nm_SD[ i_lon, j_lat, :] = PD_b532nm_SD / 1000.  # 1/(km sr) => 1/(m sr)
+
+
+            sys.exit("www")
+
 
             ##  Compute coverage percentage  ----------------------------------
             len_IGBP = float(len(IGBP))
@@ -641,7 +780,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_DOD_532nm_mean[:]      = Final_LIVAS_PD_DOD_532nm
     LIVAS_DOD_532nm_SD[:]        = Final_LIVAS_PD_DOD_532nm_SD
     LIVAS_total_Profiles_id[:]   = Total_Number_of_Profiles
-    
+
     ## flags coverage
     Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
     Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
