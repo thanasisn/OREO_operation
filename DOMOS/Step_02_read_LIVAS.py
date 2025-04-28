@@ -42,6 +42,7 @@ TRACE = Ou.source_code_hash(__file__)
 ##  Overwrite output files
 FORCE = True
 FORCE = cnf.mode.Force
+FORCE = True
 
 ##  Export by each month
 MONTHLY  = False
@@ -54,7 +55,6 @@ SEASONAL = cnf.D1.Seasonal
 ##  Reduce work for testing
 TEST = False
 TEST = cnf.mode.Test
-# TEST = True
 
 ##  Allow only one case to run at the time  ----------------------------------
 if SEASONAL == MONTHLY:
@@ -90,8 +90,6 @@ elif MONTHLY == True:
 ERA_filenames.sort()
 ## TEST
 # shuffle(ERA_filenames)
-
-
 
 ##  Select ERA5 variables to use by method
 if cnf.ERA5.data == "mean":
@@ -194,7 +192,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
     Final_PD_MC_Fine_SD         = np.full(coords_3d, np.nan)
     Final_PD_MC_Coarse_SD       = np.full(coords_3d, np.nan)
 
-
+    Final_Surface_Elevation_MEAN_mean = np.full(coords_2d, np.nan)
+    Final_Surface_Elevation_MIN_mean  = np.full(coords_2d, np.nan)
+    Final_Surface_Elevation_MEAN_SD   = np.full(coords_2d, np.nan)
+    Final_Surface_Elevation_MIN_SD    = np.full(coords_2d, np.nan)
 
     Percentage_IGBP_1           = np.full(coords_2d, np.nan)
     Percentage_IGBP_2           = np.full(coords_2d, np.nan)
@@ -398,21 +399,6 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Total_LIVAS_PD_MC_Fine  [Altitude > cnf.LIVAS.height_limit_m] = np.nan
             Total_LIVAS_PD_MC_Coarse[Altitude > cnf.LIVAS.height_limit_m] = np.nan
 
-            ## also drop data
-            ## mean value  of mins
-
-            # for i in range(0,399) :
-            #     print(i, np.nanmean(Total_LIVAS_PD_a532nm[i,:]))
-
-            # for i in range(0,399) :
-            #     print(i, np.nanmean(Total_LIVAS_PD_b532nm[i,:]))
-
-
-            ## re add fine mode and coarse mode for a b MC in new
-
-            ## fix shift in plots
-
-
             ##  Create mean profile on vertical  ------------------------------
             PD_a532nm    = Total_LIVAS_PD_a532nm   .mean(dim = "profile", skipna = True)
             PD_b532nm    = Total_LIVAS_PD_b532nm   .mean(dim = "profile", skipna = True)
@@ -423,10 +409,54 @@ for efid, ERA_file in enumerate(ERA_filenames):
             PD_a532nm_SD    = Total_LIVAS_PD_a532nm   .std(dim = "profile", skipna = True, ddof = 1)
             PD_b532nm_SD    = Total_LIVAS_PD_b532nm   .std(dim = "profile", skipna = True, ddof = 1)
             PD_MC_SD        = Total_LIVAS_PD_MC       .std(dim = "profile", skipna = True, ddof = 1)
-            PD_MC_SD_Fine   = Total_LIVAS_PD_MC_Fine  .std(dim = "profile", skipna = True, ddof = 1)
-            PD_MC_SD_Coarse = Total_LIVAS_PD_MC_Coarse.std(dim = "profile", skipna = True, ddof = 1)
+            PD_MC_Fine_SD   = Total_LIVAS_PD_MC_Fine  .std(dim = "profile", skipna = True, ddof = 1)
+            PD_MC_Coarse_SD = Total_LIVAS_PD_MC_Coarse.std(dim = "profile", skipna = True, ddof = 1)
 
-            ##  Create summary stats on location  ------------------------------
+            # # Plotting
+            # plt.figure(figsize=(6, 8))
+            # plt.xlim(0, 0.25)
+            # # plt.ylim(0, 10)
+            # upper = PD_a532nm + PD_a532nm_SD
+            # lower = PD_a532nm - PD_a532nm_SD
+            # plt.fill_betweenx(Altitude, lower, upper, color='blue', alpha=0.3)
+            # plt.plot(PD_a532nm, Altitude)
+            # plt.xlabel("a 532 nm [km-1]")
+            # plt.ylabel("Altitude (km)")
+            # plt.grid(True)
+            # plt.show()
+
+            ##  Create DOD with vertical integration  -------------------------
+            arr = np.copy(PD_a532nm)
+            arr[np.isnan(arr)] = 0
+            ## Altitude in meters Extinction in kilometres
+            DOD_532nm          = np.trapezoid(Altitude / 1000, arr)
+
+            arr = np.copy(PD_a532nm_SD)
+            arr[np.isnan(arr)] = 0
+            ## Altitude in meters Extinction in kilometres
+            DOD_532nm_SD       = np.trapezoid(Altitude / 1000, arr)
+
+            Final_LIVAS_PD_DOD_532nm[   i_lon, j_lat] = DOD_532nm
+            Final_LIVAS_PD_DOD_532nm_SD[i_lon, j_lat] = DOD_532nm_SD
+
+            # PD_a532nm.plot()
+            # PD_b532nm.plot()
+            # PD_MC.plot()
+
+            ##  Store vertical distributions  ---------------------------------
+            Final_PD_MC[          i_lon, j_lat, :] = PD_MC
+            Final_PD_MC_SD[       i_lon, j_lat, :] = PD_MC_SD
+            Final_PD_MC_Fine[     i_lon, j_lat, :] = PD_MC_Fine
+            Final_PD_MC_Fine_SD[  i_lon, j_lat, :] = PD_MC_Fine_SD
+            Final_PD_MC_Coarse[   i_lon, j_lat, :] = PD_MC_Coarse
+            Final_PD_MC_Coarse_SD[i_lon, j_lat, :] = PD_MC_Coarse_SD
+            Final_PD_a532nm[      i_lon, j_lat, :] = PD_a532nm    / 1000.  # 1/km => 1/m
+            Final_PD_a532nm_SD[   i_lon, j_lat, :] = PD_a532nm_SD / 1000.  # 1/km => 1/m
+            Final_PD_b532nm[      i_lon, j_lat, :] = PD_b532nm    / 1000.  # 1/(km sr) => 1/(m sr)
+            Final_PD_b532nm_SD[   i_lon, j_lat, :] = PD_b532nm_SD / 1000.  # 1/(km sr) => 1/(m sr)
+
+
+            ##  Store surface elevation stats  --------------------------------
 
             ## TODO
             ## add mean elevalation of mean
@@ -435,64 +465,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
             ## 0 : min elevation
             ## 2 : mean elevation
 
-            Total_Surface_elevation_MEAN.mean()
-            Total_Surface_elevation_MIN.mean()
-            Total_Surface_elevation_MEAN.std()
-            Total_Surface_elevation_MIN.std()
-
-            np.nanmean(Total_Surface_elevation_MEAN)
-
-            if np.nanmean(Total_Surface_elevation_MEAN) != 0 or Total_Surface_elevation_MEAN.mean() !=0:
-                sys.exit("d")
-
-            # Plotting
-            plt.figure(figsize=(6, 8))
-
-            plt.xlim(0, 0.25)
-            # plt.ylim(0, 10)
-
-            upper = PD_a532nm + PD_a532nm_SD
-            lower = PD_a532nm - PD_a532nm_SD
-            plt.fill_betweenx(Altitude, lower, upper, color='blue', alpha=0.3)
-            plt.plot(PD_a532nm, Altitude)
-            plt.xlabel("a 532 nm [km-1]")
-            plt.ylabel("Altitude (km)")
-            plt.grid(True)
-            plt.show()
-
-
-            ##  Create DOD with vertical integration  -------------------------
-            arr = np.copy(PD_a532nm)
-            arr[np.isnan(arr)] = 0
-            ## Altitude in meters Extinction in kilometers
-            DOD_532nm          = np.trapezoid(Altitude / 1000, arr)
-
-            arr = np.copy(PD_a532nm_SD)
-            arr[np.isnan(arr)] = 0
-            ## Altitude in meters Extinction in kilometers
-            DOD_532nm_SD       = np.trapezoid(Altitude / 1000, arr)
-
-            Final_LIVAS_PD_DOD_532nm[   i_lon, j_lat] = DOD_532nm
-            Final_LIVAS_PD_DOD_532nm_SD[i_lon, j_lat] = DOD_532nm_SD
-
-            PD_a532nm.plot()
-
-            PD_b532nm.plot()
-            PD_b532nm.plot()
-
-            PD_MC.plot()
-
-
-
-            ##  Store vertical distributions  ---------------------------------
-            Final_PD_MC[        i_lon, j_lat, :] = PD_MC
-            Final_PD_MC_SD[     i_lon, j_lat, :] = PD_MC_SD
-            Final_PD_a532nm[    i_lon, j_lat, :] = PD_a532nm    / 1000.  # 1/km => 1/m
-            Final_PD_a532nm_SD[ i_lon, j_lat, :] = PD_a532nm_SD / 1000.  # 1/km => 1/m
-            Final_PD_b532nm[    i_lon, j_lat, :] = PD_b532nm    / 1000.  # 1/(km sr) => 1/(m sr)
-            Final_PD_b532nm_SD[ i_lon, j_lat, :] = PD_b532nm_SD / 1000.  # 1/(km sr) => 1/(m sr)
-
-
+            Final_Surface_Elevation_MEAN_mean[i_lon, j_lat] = Total_Surface_elevation_MEAN.mean() * 1000.  # km => m
+            Final_Surface_Elevation_MIN_mean [i_lon, j_lat] = Total_Surface_elevation_MIN.mean()  * 1000.  # km => m
+            Final_Surface_Elevation_MEAN_SD  [i_lon, j_lat] = Total_Surface_elevation_MEAN.std()  * 1000.  # km => m
+            Final_Surface_Elevation_MIN_SD   [i_lon, j_lat] = Total_Surface_elevation_MIN.std()   * 1000.  # km => m
 
             ##  Compute coverage percentage  ----------------------------------
             len_IGBP = float(len(IGBP))
@@ -537,9 +513,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ds.createDimension('lon',         len(ERA_Longitude))
 
     ## create groups
-    ERA5_group                = ds.createGroup("ERA5")
-    LIVAS_group               = ds.createGroup("LIVAS")
-    Land_Ocean_Mask_group     = ds.createGroup("Land_Ocean_Mask")
+    ds.createGroup("ERA5")
+    ds.createGroup("LIVAS")
+    ds.createGroup("CALIPSO")
+    ds.createGroup("Land_Ocean_Mask")
 
     ## create variables
     lats_id                   = ds.createVariable('Latitude',  'f4', ('lat',))
@@ -561,11 +538,21 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_PD_MC_id            = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_MC',          np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
     LIVAS_PD_MC_SD_id         = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_MC_STD',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
 
+    LIVAS_PD_MC_Fine_id       = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_MC_Fine',          np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+    LIVAS_PD_MC_Fine_SD_id    = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_MC_Fine_STD',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+    LIVAS_PD_MC_Coarse_id     = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_MC_Coarse',          np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+    LIVAS_PD_MC_Coarse_SD_id  = ds.createVariable('LIVAS/Pure_Dust/LIVAS_PD_MC_Coarse_STD',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+
     LIVAS_N_of_CF_Profiles_id = ds.createVariable('LIVAS/Flags/Number_of_L2_CF_Profiles', np.float64, ('lon','lat',), zlib=True)
     LIVAS_N_of_Profiles_id    = ds.createVariable('LIVAS/Flags/Number_of_L2_Profiles',    np.float64, ('lon','lat',), zlib=True)
     LIVAS_total_Profiles_id   = ds.createVariable('LIVAS/Flags/Total_L2_Profiles_N',      np.float64, ('lon','lat',), zlib=True)
     LIVAS_DOD_532nm_mean      = ds.createVariable('LIVAS/Pure_Dust/DOD_532nm_mean',       np.float64, ('lon','lat',), zlib=True)
     LIVAS_DOD_532nm_SD        = ds.createVariable('LIVAS/Pure_Dust/DOD_532nm_STD',        np.float64, ('lon','lat',), zlib=True)
+
+    CALIPSO_Surface_Elevation_MEAN_mean = ds.createVariable('CALIPSO/Surface_Elevation_MEAN_mean', np.float64, ('lon','lat',), zlib=True)
+    CALIPSO_Surface_Elevation_MIN_mean  = ds.createVariable('CALIPSO/Surface_Elevation_MIN_mean',  np.float64, ('lon','lat',), zlib=True)
+    CALIPSO_Surface_Elevation_MEAN_SD   = ds.createVariable('CALIPSO/Surface_Elevation_MEAN_SD',   np.float64, ('lon','lat',), zlib=True)
+    CALIPSO_Surface_Elevation_MIN_SD    = ds.createVariable('CALIPSO/Surface_Elevation_MIN_SD',    np.float64, ('lon','lat',), zlib=True)
 
     Percentage_IGBP_1_id      = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_1',    np.float64, ('lon','lat',), zlib=True)
     Percentage_IGBP_2_id      = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_2',    np.float64, ('lon','lat',), zlib=True)
@@ -604,10 +591,20 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
     LIVAS_PD_MC_id.units            = 'micrograms/m^3'
     LIVAS_PD_MC_SD_id.units         = 'micrograms/m^3'
+    LIVAS_PD_MC_Fine_id.units       = 'micrograms/m^3'
+    LIVAS_PD_MC_Fine_SD_id.units    = 'micrograms/m^3'
+    LIVAS_PD_MC_Coarse_id.units     = 'micrograms/m^3'
+    LIVAS_PD_MC_Coarse_SD_id.units  = 'micrograms/m^3'
+
     LIVAS_N_of_CF_Profiles_id.units = 'none'
     LIVAS_N_of_Profiles_id.units    = 'none'
     LIVAS_DOD_532nm_mean.units      = 'none'
     LIVAS_DOD_532nm_SD.units        = 'none'
+
+    CALIPSO_Surface_Elevation_MEAN_mean.units = 'm'
+    CALIPSO_Surface_Elevation_MIN_mean.units  = 'm'
+    CALIPSO_Surface_Elevation_MEAN_SD.units   = 'm'
+    CALIPSO_Surface_Elevation_MIN_SD.units    = 'm'
 
     Percentage_IGBP_1_id.units      = 'none'
     Percentage_IGBP_2_id.units      = 'none'
@@ -645,12 +642,21 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_b532nm_PD_SD_id.long_name     = 'Pure-Dust Backscatter Coefficient 532nm - SD'
     LIVAS_PD_MC_id.long_name            = 'Pure-Dust Mass Concentration'
     LIVAS_PD_MC_SD_id.long_name         = 'Pure-Dust Mass Concentration - SD'
+    LIVAS_PD_MC_Fine_id.long_name       = 'Fine mode Pure-Dust Mass Concentration'
+    LIVAS_PD_MC_Fine_SD_id.long_name    = 'Fine mode Pure-Dust Mass Concentration - SD'
+    LIVAS_PD_MC_Coarse_id.long_name     = 'Coarse mode Pure-Dust Mass Concentration'
+    LIVAS_PD_MC_Coarse_SD_id.long_name  = 'Coarse mode Pure-Dust Mass Concentration - SD'
     LIVAS_DOD_532nm_mean.long_name      = 'Dust Optical Depth 532nm - mean'
     LIVAS_DOD_532nm_SD.long_name        = 'Dust Optical Depth 532nm - SD'
 
     LIVAS_N_of_CF_Profiles_id.long_name = 'Number of CALIPSO L2 5km Cloud Free Profiles'
     LIVAS_N_of_Profiles_id.long_name    = 'Number of CALIPSO L2 5km Profiles'
     LIVAS_total_Profiles_id.long_name   = 'Number of profiles in the ERA5 cell'
+
+    CALIPSO_Surface_Elevation_MEAN_mean.long_name = 'Mean of the Surface elevation MEAN'
+    CALIPSO_Surface_Elevation_MIN_mean.long_name  = 'Mean of the Surface elevation MIN'
+    CALIPSO_Surface_Elevation_MEAN_SD.long_name   = 'SD of the Surface elevation MEAN'
+    CALIPSO_Surface_Elevation_MIN_SD.long_name    = 'SD of the Surface elevation MIN'
 
     Percentage_IGBP_1_id.long_name      = 'Evergreen-Needleleaf-Forest'
     Percentage_IGBP_2_id.long_name      = 'Evergreen-Broadleaf-Forest'
@@ -724,10 +730,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
                                                     longitude = ERA_Longitude)
         ERA_V_SD_id[:]               = ERA.v_SD.sel(latitude  = ERA_Latitude,
                                                     longitude = ERA_Longitude)
-        ERA_height_low_id[:]          = ERA.height_low.sel(latitude  = ERA_Latitude,
-                                                           longitude = ERA_Longitude)
-        ERA_height_up_id[:]          = ERA.height_up.sel(latitude  = ERA_Latitude,
+        ERA_height_low_id[:]         = ERA.height_low.sel(latitude  = ERA_Latitude,
                                                           longitude = ERA_Longitude)
+        ERA_height_up_id[:]          = ERA.height_up.sel(latitude  = ERA_Latitude,
+                                                         longitude = ERA_Longitude)
     else:
         ## pass ERA5 ncdf as is
         ERA_Height_id[:]             = ERA.height
@@ -746,11 +752,22 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_b532nm_PD_SD_id[:]     = Final_PD_b532nm_SD
     LIVAS_PD_MC_id[:]            = Final_PD_MC
     LIVAS_PD_MC_SD_id[:]         = Final_PD_MC_SD
+    LIVAS_PD_MC_Fine_id[:]       = Final_PD_MC_Fine
+    LIVAS_PD_MC_Fine_SD_id[:]    = Final_PD_MC_Fine_SD
+    LIVAS_PD_MC_Coarse_id[:]     = Final_PD_MC_Coarse
+    LIVAS_PD_MC_Coarse_SD_id[:]  = Final_PD_MC_Coarse_SD
+
     LIVAS_N_of_CF_Profiles_id[:] = Final_Number_of_L2Profiles
     LIVAS_N_of_Profiles_id[:]    = Final_Number_of_Profiles
     LIVAS_DOD_532nm_mean[:]      = Final_LIVAS_PD_DOD_532nm
     LIVAS_DOD_532nm_SD[:]        = Final_LIVAS_PD_DOD_532nm_SD
     LIVAS_total_Profiles_id[:]   = Total_Number_of_Profiles
+
+    ##  CALIPSO data
+    CALIPSO_Surface_Elevation_MEAN_mean[:] = Final_Surface_Elevation_MEAN_mean
+    CALIPSO_Surface_Elevation_MIN_mean [:] = Final_Surface_Elevation_MIN_mean
+    CALIPSO_Surface_Elevation_MEAN_SD  [:] = Final_Surface_Elevation_MEAN_SD
+    CALIPSO_Surface_Elevation_MIN_SD   [:] = Final_Surface_Elevation_MIN_SD
 
     ## flags coverage
     Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
