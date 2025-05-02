@@ -37,9 +37,16 @@ ERA5:
 LIVAS:
     ## location of LIVAS files
     path_lookup:     "/home/folder/LIVAS"
+    ## percentiles file path
+    percentiles_fl: "/home/athan/OREO/operation/side_data/Quantiles_PD_b532nm.nc"
     ## LIVAS levels constant
     levels:           399
     height_limit_m: 10000
+
+
+DOMOS:
+    ## DOMOS OUTPUT
+    path_output:    "/home/athan/DATA/DOMOS/"
 
 
 OREO:

@@ -15,7 +15,7 @@ import argparse
 import glob
 import pathlib
 import subprocess
-
+import xarray as xr
 
 
 def source_code_hash(filepath):
@@ -198,3 +198,54 @@ def get_configs(file, quiet = False):
     if not quiet:
         print(CNF, "\n")
     return CNF
+
+
+
+def backscatter_percentiles_lookup(ylat,
+                                   xlon,
+                                   datafile,   # cnf.LIVAS.percentiles_fl,
+                                   ylat_step,  # cnf.D1.LatStep,
+                                   xlon_step   # cnf.D1.LonStep
+                                   ):
+    """
+    Return precomputed percentiles of backscatter
+
+    Parameters
+    ----------
+    ylat : float
+        Latitude.
+    xlon : float
+        Longitude.
+    datafile : string, optional
+        The location of the lookup file. The default is cnf.LIVAS.percentiles_fl.
+    ylat_step : TYPE, optional
+        The working cell resolution of latitude. The default is cnf.D1.LatStep.
+    xlon_step : TYPE, optional
+        The working cell resolution of longitude. The default is cnf.D1.LonStep.
+
+    Returns
+    -------
+    SEL : TYPE
+        A subsetted xarray object containing the percentiles.
+    """
+
+    if not os.path.exists(datafile):
+        sys.exit(f"Missing file: {datafile}")
+
+    ##  Read the look up table
+    DATA = xr.open_dataset(datafile,
+                           group = f"{xlon_step}x{ylat_step}")
+
+    ##  Check coordinates exist
+    if not DATA.latitude.isin(ylat).any():
+        sys.exit(f"Latitude {ylat} can not be found in {datafile}")
+    if not DATA.longitude.isin(xlon).any():
+        sys.exit(f"{xlon} can not be found in {datafile}")
+
+    ##  Subset for specific location
+    SEL = DATA.where(
+            DATA.longitude == xlon, drop=True).where(
+              DATA.latitude  == ylat, drop=True)
+
+    ##  Return all values for location
+    return SEL
