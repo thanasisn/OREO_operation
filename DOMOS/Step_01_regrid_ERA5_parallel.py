@@ -185,7 +185,7 @@ def process_ERA5_file(filein):
         lats       = ds.createVariable('latitude',        'f4', ('latitude', ), zlib=True)
         lons       = ds.createVariable('longitude',       'f4', ('longitude',), zlib=True)
         time       = ds.createVariable('time',      np.float64, ('time',))
-        time_span  = ds.createVariable('time_span',   np.int32, ('time_span',))
+        time_span  = ds.createVariable('time_span', np.int32, ('time_span',))
 
         ##  Set units attributes
         U_SD.units       = 'm s**-1'

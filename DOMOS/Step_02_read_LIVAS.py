@@ -18,11 +18,9 @@ import numpy    as np
 import pandas   as pd
 import numpy.ma as ma
 import xarray as xr
+
 from random import shuffle
-
-# import matplotlib as plt
 import matplotlib.pyplot as plt
-
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -37,9 +35,7 @@ cnf = Ou.get_configs(
 ##  Track the source code status that created each output  -------------------
 TRACE = Ou.source_code_hash(__file__)
 
-
 ##  Set switches  ------------------------------------------------------------
-
 ##  Overwrite output files
 FORCE = True
 FORCE = cnf.mode.Force
@@ -56,7 +52,6 @@ SEASONAL = cnf.D1.Seasonal
 ##  Reduce work for testing
 TEST = False
 TEST = cnf.mode.Test
-TEST = True
 
 ##  Allow only one case to run at the time  ----------------------------------
 if SEASONAL == MONTHLY:
@@ -506,6 +501,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ds.createDimension('CALIPSO_lev', len(Altitude))
     ds.createDimension('lat',         len(ERA_Latitude))
     ds.createDimension('lon',         len(ERA_Longitude))
+    ds.createDimension('time',           1)
+    ds.createDimension('time_span',      1)
 
     ##  Create groups
     ds.createGroup("ERA5")
@@ -516,6 +513,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ##  Create variables
     lats_id                   = ds.createVariable('Latitude',  'f4', ('lat',))
     lons_id                   = ds.createVariable('Longitude', 'f4', ('lon',))
+    time                      = ds.createVariable('time',       np.float64, ('time',))
+    time_span                 = ds.createVariable('time_span',  np.int32,   ('time_span',))
 
     ERA_U_id                  = ds.createVariable('ERA5/U',          np.float64, ('lon','lat','ERA_lev',), zlib=True)
     ERA_U_SD_id               = ds.createVariable('ERA5/U_SD',       np.float64, ('lon','lat','ERA_lev',), zlib=True)
@@ -583,6 +582,9 @@ for efid, ERA_file in enumerate(ERA_filenames):
     LIVAS_a532nm_PD_SD_id.units     = '1/m'       # changed altitude to meters
     LIVAS_b532nm_PD_id.units        = '1/(m sr)'  # changed altitude to meters
     LIVAS_b532nm_PD_SD_id.units     = '1/(m sr)'  # changed altitude to meters
+    time.calendar                   = 'proleptic_gregorian'
+    time.units                      = 'seconds since 1970-01-01 00:00:00'  ## same as raw ERA5
+    time_span.units                 = 'month'
 
     LIVAS_PD_MC_id.units            = 'micrograms/m^3'
     LIVAS_PD_MC_SD_id.units         = 'micrograms/m^3'
@@ -629,6 +631,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ERA_U_SD_id.long_name               = 'U component of wind SD'
     ERA_V_id.long_name                  = 'V component of wind'
     ERA_V_SD_id.long_name               = 'V component of wind SD'
+    time.long_name                      = 'Time'
+    time_span.long_name                 = 'The time span of the aggregated data'
 
     LIVAS_Altitude_id.long_name         = 'Height'
     LIVAS_a532nm_PD_id.long_name        = 'Pure-Dust Extinction Coefficient 532nm'
@@ -712,6 +716,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ##  Assign data to variables  ---------------------------------------------
     lats_id[:]                   = ERA_Latitude
     lons_id[:]                   = ERA_Longitude
+    time[:]                      = ERA.time
+    time_span[:]                 = ERA.time_span
 
     if TEST:
         ## test in a subdomain

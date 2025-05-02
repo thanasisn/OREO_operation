@@ -68,11 +68,12 @@ start_status "$ascript"
 $CONDA "$ascript"  -p "$PROFILE"
 end_status $? "$ascript"
 
-exit
-
-
 info "Merge ERA with LIVAS"
-./Step_02_read_LIVAS.py -p "$PROFILE"
+ascript="./Step_02_read_LIVAS.py"
+start_status "$ascript"
+$CONDA "$ascript"  -p "$PROFILE"
+end_status $? "$ascript"
+
 
 info "END in $SECONDS seconds"
 exit 0
