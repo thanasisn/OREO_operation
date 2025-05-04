@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
+Apply dust depotition with input from ERA5 and LIVAS dataset
 
 @author: proestakis, thanasisn
 """
@@ -18,9 +19,11 @@ import pandas   as pd
 from   datetime    import date, datetime, timedelta
 from   pathlib import Path
 import numpy.ma as ma
+
 from matplotlib import pyplot as plt
 # import geopy.distance
 
+from random import shuffle
 
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
@@ -88,8 +91,7 @@ elif MONTHLY == True:
 
 DOMOS_filenames.sort()
 ## TEST
-# shuffle(ERA_filenames)
-
+shuffle(DOMOS_filenames)
 
 # directory paths of input datasets
 DOMOS_EO_datasets_path    = r"D:\PC-backup\Projects\DOMOS\Datasets\2x5_deg_seasonal_mean\Step_II_V45"
@@ -333,15 +335,13 @@ def computation_of_dust_deposition(Longitude,Latitude,Percentage_IGBP_17,PD_MC_E
     return(F_N,F_S,F_E,F_W,Dust_Deposition)
 
 
-##########################################################################################
-####                                main                                              ####
-##########################################################################################
-
-
-
+####       main                                              ####
 
 for i_DOMOS, DOMOS_file in enumerate(DOMOS_filenames):
 
+    ### Reading NC variables ###
+    DOMOS_dataset = nc.Dataset(DOMOS_file)
+    DOMOS         = xr.open_dataset(DOMOS_file)
 
 
     ### extracting "yyyymm" sufix from DOMOS filename ###
@@ -354,9 +354,6 @@ for i_DOMOS, DOMOS_file in enumerate(DOMOS_filenames):
     DOMOS_file_season = DOMOS_substrings[len(DOMOS_substrings)-1]
     DOMOS_sufix       = DOMOS_file_year + '_' + DOMOS_file_season
 
-    ### Reading NC variables ###
-    DOMOS_dataset = nc.Dataset(DOMOS_file)
-    DOMOS         = xr.open_dataset(DOMOS_file)
 
     DOMOS.data_date
 
@@ -366,8 +363,8 @@ for i_DOMOS, DOMOS_file in enumerate(DOMOS_filenames):
     ERA_Longitude = ERA.longitude
 
     ##  Get the ERA file year and month
-    ERA_year      = pd.DatetimeIndex(DOMOS.data_date).year[0]
-    ERA_month     = pd.DatetimeIndex(DOMOS.data_date).month[0]
+    ERA_year      = pd.DatetimeIndex(DOMOS.time).year[0]
+    ERA_month     = pd.DatetimeIndex(DOMOS.time).month[0]
 
 
 

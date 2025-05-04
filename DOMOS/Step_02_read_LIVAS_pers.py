@@ -22,6 +22,7 @@ import xarray as xr
 from random import shuffle
 import matplotlib.pyplot as plt
 
+
 ##  Load project functions  --------------------------------------------------
 sys.path.append("../")
 import oreo_mod.utils as Ou
@@ -70,7 +71,6 @@ fl_East  = Oc.border_up(  cnf.D1.East,  cnf.D1.MaxLonStep,  180)
 fl_West  = Oc.border_down(cnf.D1.West,  cnf.D1.MaxLonStep, -180)
 REGRID_lat_centers = np.arange(fl_North, fl_South + 1, -cnf.D1.LatStep) - cnf.D1.LatStep / 2
 REGRID_lon_centers = np.arange(fl_West,  fl_East,       cnf.D1.LonStep) + cnf.D1.LonStep / 2
-
 
 ##  Temporal aggregation setup  ----------------------------------------------
 if SEASONAL == True:
@@ -165,7 +165,12 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ERA_Longitude = ERA_Longitude[0:1]
         ERA_Latitude  = ERA_Latitude [0:1]
 
-    ##  Skip already existing files
+    ##  Have to remove existing file in order to create multiple groups  -----
+    if os.path.exists(fileout):
+        os.remove(fileout)
+        print(f"Remove existing file {fileout}")
+
+    ##  Skip already existing files  ------
     if (not FORCE) and (not Ou.output_needs_update(ERA_file, fileout)):
         continue
 
@@ -176,8 +181,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
     ##  Iterate different cutoff of backscatter values  ----------------------
     for i_per, aper in enumerate(percentiles):
 
-        ##  Create structures to gather data for the domain  ---------------------
-        Final_Number_of_Profiles    = np.full(coords_2d, np.nan)
+        ##  Create structures to gather data for the domain  ------------------
+        # Final_Number_of_Profiles    = np.full(coords_2d, np.nan)
         Total_Number_of_Profiles    = np.full(coords_2d, np.nan)
         Final_Number_of_L2Profiles  = np.full(coords_2d, np.nan)
         Final_LIVAS_PD_DOD_532nm    = np.full(coords_2d, np.nan)
@@ -218,14 +223,14 @@ for efid, ERA_file in enumerate(ERA_filenames):
         Percentage_IGBP_17          = np.full(coords_2d, np.nan)
         Percentage_IGBP_18          = np.full(coords_2d, np.nan)
 
-        ##  Iterate over all points in ERA5 files  --------------------------------
+        ##  Iterate over all points in ERA5 files  ----------------------------
         ec_c = 0  ## coordinates counter
         for (i_lon, ERA_lon), (j_lat, ERA_lat) in product(enumerate(ERA_Longitude.values), enumerate(ERA_Latitude.values)):
 
             file_counter    = 0  # this is important for the logic
             profile_counter = 0  # just for statistics
 
-            ##  List of all LIVAS coordinates to use for this cell  ---------------
+            ##  List of all LIVAS coordinates to use for this cell  -----------
             Llats = LIVAS_all_lats[np.logical_and(
                 LIVAS_all_lats > ERA_lat - (cnf.D1.LatStep / 2),
                 LIVAS_all_lats < ERA_lat + (cnf.D1.LatStep / 2)
@@ -250,7 +255,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             ## !!! TEST do few of LIVAS files
             # if TEST: comb = comb[0:4]
 
-            ##  Read a LIVAS file  ------------------------------------------------
+            ##  Read a LIVAS file  --------------------------------------------
             ec_c += 1                                                      # domain iteration
             ec_t = len(ERA_Longitude) * len(ERA_Latitude)                  # total domain points
             li_t = comb.shape[0]                                           # total cell points
@@ -258,7 +263,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             for LIVAS_lat, LIVAS_lon in comb:
                 li_c     = file_counter + 1                                # count cell iteration
                 curre_it = (efid * ec_t * li_t ) + ((ec_c) * li_t) + li_c  # current iteration
-                curre_it = curre_it * (i_per + 1)                          # expand percentile itarations
+                curre_it = curre_it * (i_per + 1)                          # expand percentile iterations
                 complete = 100 * curre_it / total_it                       # percentage of completeness
                 duration = datetime.now() - tic                            # current run duration
                 if complete == 0:
@@ -270,13 +275,13 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 print(f"\n> {efid}/{len(ERA_filenames)} {i_per}/{len(percentiles)} {ec_c:>3}/{ec_t} {li_c}/{li_t} [{ERA_lat} {ERA_lon}] <- [{LIVAS_lat} {LIVAS_lon}]")
                 print(f"> {ERA_year} {ERA.season} {curre_it}/{total_it} {complete:6.2f}% P: {format(duration)} R: {format(eta)} F: {eda}")
 
-                ##  File to read  -------------------------------------------------
+                ##  File to read  ---------------------------------------------
                 LIVAS_file = os.path.join(
                     cnf.LIVAS.path_lookup,
                     f"LIVAS_CALIPSO_L2_Grid_lon_c_{str(LIVAS_lon)}_lat_c_{str(LIVAS_lat)}.nc")
                 # print(f"> {LIVAS_file}\n")
 
-                ##  Skip missing LIVAS files or issue an error  -------------------
+                ##  Skip missing LIVAS files or issue an error  ---------------
                 if not os.path.exists(LIVAS_file):
                     amsg = f"Missing file: {os.path.basename(LIVAS_file)}"
                     if cnf.mode.Test:
@@ -285,8 +290,9 @@ for efid, ERA_file in enumerate(ERA_filenames):
                     else:
                         sys.exit(amsg)
 
-                ##  Load LIVAS file xarray  ---------------------------------------
-                LIVAS         = xr.open_datatree(LIVAS_file)
+                ##  Load LIVAS file xarray  -----------------------------------
+                # LIVAS         = xr.open_datatree(LIVAS_file, engine="netcdf4") ## seg faults?
+                LIVAS         = xr.open_datatree(LIVAS_file, engine="h5netcdf")
 
                 ##  Create a selection index of profile dates
                 id_date_range = (pd.DatetimeIndex(LIVAS.Profile_Time_Parsed).year.isin(  YoI ) &
@@ -295,7 +301,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 ##  Will keep only profile in these dates
                 id_profiles   = LIVAS.profile[id_date_range]
 
-                ##  Skip files without usable data  -------------------------------
+                ##  Skip files without usable data  ---------------------------
                 if (id_date_range).sum() == 0:
                     print("No usable data in LIVAS")
                     continue
@@ -305,13 +311,12 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 ##  Profiles in each file for this cell
                 # print(f"    Count: {id_date_range.sum()}")
 
-                ##  Get data selection from LIVAS  --------------------------------
+                ##  Get data selection from LIVAS  ----------------------------
                 ## BEWARE some variables are in km in LIVAS files
                 Altitude = LIVAS.Altitude * 1000  ## Convert to meters!!
 
                 ##  Will exclude data with negative altitude
                 id_negative_altitude = Altitude < 0
-
 
                 IGBP = LIVAS.CALIPSO_Flags_and_Auxiliary.Auxiliary.IGBP_Surface_Type
 
@@ -322,7 +327,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 Surface_elevation_MIN  = Surface_elevation.sel(statistic = 0)
                 Surface_elevation_MEAN = Surface_elevation.sel(statistic = 2)
 
-                ##  Will remove bellow minumum surface elevation of every profile
+                ##  Will remove bellow minimum surface elevation of every profile
                 Surface_elevation_limit_id = LIVAS.Altitude <= Surface_elevation_MIN
 
                 ##  Select date range and NaN for negative altitude
@@ -354,7 +359,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
                 LIVAS_LR_Dust   = np.unique(LIVAS.LIVAS.Auxiliary.Lidar_Ratio_Assumptions.Lidar_Ratio_Dust.sel(
                     profile = id_date_range))
 
-                ##  Limit extreme values of backscatter  ---------------------
+                ##  Limit extreme values of backscatter  ----------------------
                 if aper != 100:
                     ## backscatter > percentile => drop backscatter and all matching data
                     blim = BLIM[f"Percentile_{aper}"]
@@ -422,7 +427,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             ##  Prepare selected data for a cell  =================================
 
             ##  Count profiles  ---------------------------------------------------
-            Final_Number_of_Profiles[i_lon, j_lat] = np.shape(Total_LIVAS_PD_MC)[1]  ## TODO remove var
+            # Final_Number_of_Profiles[i_lon, j_lat] = np.shape(Total_LIVAS_PD_MC)[1]  ## TODO remove var
             Total_Number_of_Profiles[i_lon, j_lat] = profile_counter
 
             ##  Count Cloud free profiles -----------------------------------------
@@ -516,7 +521,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             Percentage_IGBP_17[i_lon, j_lat] = np.divide(np.count_nonzero(IGBP == 17), len_IGBP) * 100
             Percentage_IGBP_18[i_lon, j_lat] = np.divide(np.count_nonzero(IGBP == 18), len_IGBP) * 100
 
-            ##  Check coverage percentage consistency  ----------------------------
+            ##  Verify coverage percentage consistency  ----------------------------
             ## This was tested, results as expected
             # adder = 0.0
             # for i in range(1, 19):
@@ -527,147 +532,277 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ## END iteration on the whole ERA5 domain
 
         ##  Saving dataset as NetCDF ----------------------------------------------
+        ##  Have to remove existing file for this to work
         ds = nc.Dataset(fileout, 'a', format='NETCDF4')
 
-        ##  Assume all dimensions were created
-        if not "lon" in ds.dimensions:
-            sys.exit("DD")
+        ##  Store common data only one time  -----------------
+        if not "ERA5" in ds.groups:
 
-        ##  Create dimensions
-        ds.createDimension('ERA_lev',     ERA.pressure_level.shape[0])
-        ds.createDimension('CALIPSO_lev', len(Altitude))
-        ds.createDimension('lat',         len(ERA_Latitude))
-        ds.createDimension('lon',         len(ERA_Longitude))
-        ds.createDimension('time',        1)
-        ds.createDimension('time_span',   1)
+            ##  Create global dimensions
+            ds.createDimension('ERA_lev',     ERA.pressure_level.shape[0])
+            ds.createDimension('CALIPSO_lev', len(Altitude))
+            ds.createDimension('lat',         len(ERA_Latitude))
+            ds.createDimension('lon',         len(ERA_Longitude))
+            ds.createDimension('time',        1)
+            ds.createDimension('time_span',   1)
 
-        ##  Create groups
-        ds.createGroup("ERA5")
-        ds.createGroup(f"LIVAS_p{aper}")
-        ds.createGroup("CALIPSO")
-        ds.createGroup("Land_Ocean_Mask")
+            ##  Create global groups
+            ds.createGroup("ERA5")
+            ds.createGroup("CALIPSO")
+            ds.createGroup("Land_Ocean_Mask")
 
-        ##  Create variables
-        lats_id                   = ds.createVariable('Latitude',  'f4', ('lat',))
-        lons_id                   = ds.createVariable('Longitude', 'f4', ('lon',))
-        time                      = ds.createVariable('time',       np.float64, ('time',))
-        time_span                 = ds.createVariable('time_span',  np.int32,   ('time_span',))
+            ##  Create global variables
+            lats_id                   = ds.createVariable('Latitude',  'f4', ('lat',))
+            lons_id                   = ds.createVariable('Longitude', 'f4', ('lon',))
+            time                      = ds.createVariable('time',       np.float64, ('time',))
+            time_span                 = ds.createVariable('time_span',  np.int32,   ('time_span',))
 
-        ERA_U_id                  = ds.createVariable('ERA5/U',          np.float64, ('lon','lat','ERA_lev',), zlib=True)
-        ERA_U_SD_id               = ds.createVariable('ERA5/U_SD',       np.float64, ('lon','lat','ERA_lev',), zlib=True)
-        ERA_V_id                  = ds.createVariable('ERA5/V',          np.float64, ('lon','lat','ERA_lev',), zlib=True)
-        ERA_V_SD_id               = ds.createVariable('ERA5/V_SD',       np.float64, ('lon','lat','ERA_lev',), zlib=True)
-        ERA_height_low_id         = ds.createVariable('ERA5/height_low', np.float64, ('lon','lat','ERA_lev',), zlib=True)
-        ERA_Height_id             = ds.createVariable('ERA5/height',     np.float64, ('lon','lat','ERA_lev',), zlib=True)
-        ERA_height_up_id          = ds.createVariable('ERA5/height_up',  np.float64, ('lon','lat','ERA_lev',), zlib=True)
+            ERA_U_id                  = ds.createVariable('ERA5/U',          np.float64, ('lon','lat','ERA_lev',), zlib=True)
+            ERA_U_SD_id               = ds.createVariable('ERA5/U_SD',       np.float64, ('lon','lat','ERA_lev',), zlib=True)
+            ERA_V_id                  = ds.createVariable('ERA5/V',          np.float64, ('lon','lat','ERA_lev',), zlib=True)
+            ERA_V_SD_id               = ds.createVariable('ERA5/V_SD',       np.float64, ('lon','lat','ERA_lev',), zlib=True)
+            ERA_height_low_id         = ds.createVariable('ERA5/height_low', np.float64, ('lon','lat','ERA_lev',), zlib=True)
+            ERA_Height_id             = ds.createVariable('ERA5/height',     np.float64, ('lon','lat','ERA_lev',), zlib=True)
+            ERA_height_up_id          = ds.createVariable('ERA5/height_up',  np.float64, ('lon','lat','ERA_lev',), zlib=True)
 
-        LIVAS_Altitude_id         = ds.createVariable(f'LIVAS_p{aper}/Altitude',                      'f4',                    ('CALIPSO_lev',), zlib=True)
-        LIVAS_a532nm_PD_id        = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_a532nm',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_a532nm_PD_SD_id     = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_a532nm_STD',  np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_b532nm_PD_id        = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_b532nm',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_b532nm_PD_SD_id     = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_b532nm_STD',  np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_PD_MC_id            = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_MC',          np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_PD_MC_SD_id         = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_MC_STD',      np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_PD_MC_Fine_id       = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_MC_Fine',       np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_PD_MC_Fine_SD_id    = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_MC_Fine_STD',   np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_PD_MC_Coarse_id     = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_MC_Coarse',     np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_PD_MC_Coarse_SD_id  = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/LIVAS_PD_MC_Coarse_STD', np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
-        LIVAS_N_of_CF_Profiles_id = ds.createVariable(f'LIVAS_p{aper}/Flags/Number_of_L2_CF_Profiles', np.float64, ('lon','lat',), zlib=True)
-        LIVAS_N_of_Profiles_id    = ds.createVariable(f'LIVAS_p{aper}/Flags/Number_of_L2_Profiles',    np.float64, ('lon','lat',), zlib=True)
-        LIVAS_total_Profiles_id   = ds.createVariable(f'LIVAS_p{aper}/Flags/Total_L2_Profiles_N',      np.float64, ('lon','lat',), zlib=True)
-        LIVAS_DOD_532nm_mean      = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/DOD_532nm_mean',       np.float64, ('lon','lat',), zlib=True)
-        LIVAS_DOD_532nm_SD        = ds.createVariable(f'LIVAS_p{aper}/Pure_Dust/DOD_532nm_STD',        np.float64, ('lon','lat',), zlib=True)
+            CALIPSO_Surface_Elevation_MEAN_mean = ds.createVariable('CALIPSO/Surface_Elevation_MEAN_mean', np.float64, ('lon','lat',), zlib=True)
+            CALIPSO_Surface_Elevation_MIN_mean  = ds.createVariable('CALIPSO/Surface_Elevation_MIN_mean',  np.float64, ('lon','lat',), zlib=True)
+            CALIPSO_Surface_Elevation_MEAN_SD   = ds.createVariable('CALIPSO/Surface_Elevation_MEAN_SD',   np.float64, ('lon','lat',), zlib=True)
+            CALIPSO_Surface_Elevation_MIN_SD    = ds.createVariable('CALIPSO/Surface_Elevation_MIN_SD',    np.float64, ('lon','lat',), zlib=True)
 
-        CALIPSO_Surface_Elevation_MEAN_mean = ds.createVariable('CALIPSO/Surface_Elevation_MEAN_mean', np.float64, ('lon','lat',), zlib=True)
-        CALIPSO_Surface_Elevation_MIN_mean  = ds.createVariable('CALIPSO/Surface_Elevation_MIN_mean',  np.float64, ('lon','lat',), zlib=True)
-        CALIPSO_Surface_Elevation_MEAN_SD   = ds.createVariable('CALIPSO/Surface_Elevation_MEAN_SD',   np.float64, ('lon','lat',), zlib=True)
-        CALIPSO_Surface_Elevation_MIN_SD    = ds.createVariable('CALIPSO/Surface_Elevation_MIN_SD',    np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_1_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_1',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_2_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_2',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_3_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_3',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_4_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_4',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_5_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_5',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_6_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_6',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_7_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_7',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_8_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_8',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_9_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_9',  np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_10_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_10', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_11_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_11', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_12_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_12', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_13_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_13', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_14_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_14', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_15_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_15', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_16_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_16', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_17_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_17', np.float64, ('lon','lat',), zlib=True)
+            Percentage_IGBP_18_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_18', np.float64, ('lon','lat',), zlib=True)
 
-        Percentage_IGBP_1_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_1',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_2_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_2',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_3_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_3',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_4_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_4',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_5_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_5',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_6_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_6',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_7_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_7',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_8_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_8',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_9_id  = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_9',  np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_10_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_10', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_11_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_11', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_12_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_12', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_13_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_13', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_14_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_14', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_15_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_15', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_16_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_16', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_17_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_17', np.float64, ('lon','lat',), zlib=True)
-        Percentage_IGBP_18_id = ds.createVariable('Land_Ocean_Mask/Percentage_IGBP_18', np.float64, ('lon','lat',), zlib=True)
+            ##  Set attributes
+            lats_id.units                   = 'degrees_north'
+            lons_id.units                   = 'degrees_east'
+            time.calendar                   = 'proleptic_gregorian'
+            time.units                      = 'seconds since 1970-01-01 00:00:00'  ## same as raw ERA5
+            time_span.units                 = 'month'
 
-        ##  Set attributes
-        lats_id.units                   = 'degrees_north'
-        lons_id.units                   = 'degrees_east'
-        ERA_Height_id.units             = 'm'
-        ERA_height_low_id.units         = 'm'
-        ERA_height_up_id.units          = 'm'
-        ERA_U_id.units                  = 'm/s'
-        ERA_U_SD_id.units               = 'm/s'
-        ERA_V_id.units                  = 'm/s'
-        ERA_V_SD_id.units               = 'm/s'
+            ERA_Height_id.units             = 'm'
+            ERA_height_low_id.units         = 'm'
+            ERA_height_up_id.units          = 'm'
+            ERA_U_id.units                  = 'm/s'
+            ERA_U_SD_id.units               = 'm/s'
+            ERA_V_id.units                  = 'm/s'
+            ERA_V_SD_id.units               = 'm/s'
+
+            CALIPSO_Surface_Elevation_MEAN_mean.units = 'm'  # changed altitude to meters
+            CALIPSO_Surface_Elevation_MIN_mean.units  = 'm'  # changed altitude to meters
+            CALIPSO_Surface_Elevation_MEAN_SD.units   = 'm'  # changed altitude to meters
+            CALIPSO_Surface_Elevation_MIN_SD.units    = 'm'  # changed altitude to meters
+
+            Percentage_IGBP_1_id.units      = 'none'
+            Percentage_IGBP_2_id.units      = 'none'
+            Percentage_IGBP_3_id.units      = 'none'
+            Percentage_IGBP_4_id.units      = 'none'
+            Percentage_IGBP_5_id.units      = 'none'
+            Percentage_IGBP_6_id.units      = 'none'
+            Percentage_IGBP_7_id.units      = 'none'
+            Percentage_IGBP_8_id.units      = 'none'
+            Percentage_IGBP_9_id.units      = 'none'
+            Percentage_IGBP_10_id.units     = 'none'
+            Percentage_IGBP_11_id.units     = 'none'
+            Percentage_IGBP_12_id.units     = 'none'
+            Percentage_IGBP_13_id.units     = 'none'
+            Percentage_IGBP_14_id.units     = 'none'
+            Percentage_IGBP_15_id.units     = 'none'
+            Percentage_IGBP_16_id.units     = 'none'
+            Percentage_IGBP_17_id.units     = 'none'
+            Percentage_IGBP_18_id.units     = 'none'
+
+            lats_id.long_name               = 'Latitude'
+            lons_id.long_name               = 'Longitude'
+            ERA_Height_id.long_name         = 'Height'
+            ERA_height_low_id.long_name     = 'Height of lower cell boundary'
+            ERA_height_up_id.long_name      = 'Height of upper cell boundary'
+            ERA_U_id.long_name              = 'U component of wind'
+            ERA_U_SD_id.long_name           = 'U component of wind SD'
+            ERA_V_id.long_name              = 'V component of wind'
+            ERA_V_SD_id.long_name           = 'V component of wind SD'
+            time.long_name                  = 'Time'
+            time_span.long_name             = 'The time span of the aggregated data'
+
+            CALIPSO_Surface_Elevation_MEAN_mean.long_name = 'Mean of the Surface elevation MEAN'
+            CALIPSO_Surface_Elevation_MIN_mean.long_name  = 'Mean of the Surface elevation MIN'
+            CALIPSO_Surface_Elevation_MEAN_SD.long_name   = 'SD of the Surface elevation MEAN'
+            CALIPSO_Surface_Elevation_MIN_SD.long_name    = 'SD of the Surface elevation MIN'
+
+            Percentage_IGBP_1_id.long_name  = 'Evergreen-Needleleaf-Forest'
+            Percentage_IGBP_2_id.long_name  = 'Evergreen-Broadleaf-Forest'
+            Percentage_IGBP_3_id.long_name  = 'Deciduous-Needleleaf-Forest'
+            Percentage_IGBP_4_id.long_name  = 'Deciduous-Broadleaf-Forest'
+            Percentage_IGBP_5_id.long_name  = 'Mixed-Forest'
+            Percentage_IGBP_6_id.long_name  = 'Closed-Shrublands'
+            Percentage_IGBP_7_id.long_name  = 'Open-Shrubland (Desert)'
+            Percentage_IGBP_8_id.long_name  = 'Woody-Savanna'
+            Percentage_IGBP_9_id.long_name  = 'Savanna'
+            Percentage_IGBP_10_id.long_name = 'Grassland'
+            Percentage_IGBP_11_id.long_name = 'Wetland'
+            Percentage_IGBP_12_id.long_name = 'Cropland'
+            Percentage_IGBP_13_id.long_name = 'Urban'
+            Percentage_IGBP_14_id.long_name = 'Crop-Mosaic'
+            Percentage_IGBP_15_id.long_name = 'Permanent-Snow'
+            Percentage_IGBP_16_id.long_name = 'Barren/Desert'
+            Percentage_IGBP_17_id.long_name = 'Water'
+            Percentage_IGBP_18_id.long_name = 'Tundra'
+
+            ERA_Height_id.fill_value             = np.nan
+            ERA_height_low_id.fill_value         = np.nan
+            ERA_height_up_id.fill_value          = np.nan
+            ERA_U_id.fill_value                  = np.nan
+            ERA_U_SD_id.fill_value               = np.nan
+            ERA_V_id.fill_value                  = np.nan
+            ERA_V_SD_id.fill_value               = np.nan
+
+            Percentage_IGBP_1_id.fill_value      = np.nan
+            Percentage_IGBP_2_id.fill_value      = np.nan
+            Percentage_IGBP_3_id.fill_value      = np.nan
+            Percentage_IGBP_4_id.fill_value      = np.nan
+            Percentage_IGBP_5_id.fill_value      = np.nan
+            Percentage_IGBP_6_id.fill_value      = np.nan
+            Percentage_IGBP_7_id.fill_value      = np.nan
+            Percentage_IGBP_8_id.fill_value      = np.nan
+            Percentage_IGBP_9_id.fill_value      = np.nan
+            Percentage_IGBP_10_id.fill_value     = np.nan
+            Percentage_IGBP_11_id.fill_value     = np.nan
+            Percentage_IGBP_12_id.fill_value     = np.nan
+            Percentage_IGBP_13_id.fill_value     = np.nan
+            Percentage_IGBP_14_id.fill_value     = np.nan
+            Percentage_IGBP_15_id.fill_value     = np.nan
+            Percentage_IGBP_16_id.fill_value     = np.nan
+            Percentage_IGBP_17_id.fill_value     = np.nan
+            Percentage_IGBP_18_id.fill_value     = np.nan
+
+
+            ##  Assign data to variables  -------------------------------------
+            lats_id[:]                   = ERA_Latitude
+            lons_id[:]                   = ERA_Longitude
+            time[:]                      = ERA.time
+            time_span[:]                 = ERA.time_span
+
+            if TEST:
+                ## test in a subdomain
+                ERA_Height_id[:]             = ERA.height.sel(latitude  = ERA_Latitude,
+                                                              longitude = ERA_Longitude)
+                ERA_U_id[:]                  = ERA[ U ].sel(latitude  = ERA_Latitude,
+                                                            longitude = ERA_Longitude)
+                ERA_U_SD_id[:]               = ERA.u_SD.sel(latitude  = ERA_Latitude,
+                                                            longitude = ERA_Longitude)
+                ERA_V_id[:]                  = ERA[ V ].sel(latitude  = ERA_Latitude,
+                                                            longitude = ERA_Longitude)
+                ERA_V_SD_id[:]               = ERA.v_SD.sel(latitude  = ERA_Latitude,
+                                                            longitude = ERA_Longitude)
+                ERA_height_low_id[:]         = ERA.height_low.sel(latitude  = ERA_Latitude,
+                                                                  longitude = ERA_Longitude)
+                ERA_height_up_id[:]          = ERA.height_up.sel(latitude  = ERA_Latitude,
+                                                                  longitude = ERA_Longitude)
+            else:
+                ## pass ERA5 ncdf as is
+                ERA_Height_id[:]             = ERA.height
+                ERA_U_id[:]                  = ERA[ U ]
+                ERA_U_SD_id[:]               = ERA.u_SD
+                ERA_V_id[:]                  = ERA[ V ]
+                ERA_V_SD_id[:]               = ERA.v_SD
+                ERA_height_low_id[:]         = ERA.height_low
+                ERA_height_up_id[:]          = ERA.height_up
+
+            ##  CALIPSO data
+            CALIPSO_Surface_Elevation_MEAN_mean[:] = Final_Surface_Elevation_MEAN_mean
+            CALIPSO_Surface_Elevation_MIN_mean [:] = Final_Surface_Elevation_MIN_mean
+            CALIPSO_Surface_Elevation_MEAN_SD  [:] = Final_Surface_Elevation_MEAN_SD
+            CALIPSO_Surface_Elevation_MIN_SD   [:] = Final_Surface_Elevation_MIN_SD
+
+            ## flags coverage
+            Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
+            Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
+            Percentage_IGBP_3_id[:]      = Percentage_IGBP_3
+            Percentage_IGBP_4_id[:]      = Percentage_IGBP_4
+            Percentage_IGBP_5_id[:]      = Percentage_IGBP_5
+            Percentage_IGBP_6_id[:]      = Percentage_IGBP_6
+            Percentage_IGBP_7_id[:]      = Percentage_IGBP_7
+            Percentage_IGBP_8_id[:]      = Percentage_IGBP_8
+            Percentage_IGBP_9_id[:]      = Percentage_IGBP_9
+            Percentage_IGBP_10_id[:]     = Percentage_IGBP_10
+            Percentage_IGBP_11_id[:]     = Percentage_IGBP_11
+            Percentage_IGBP_12_id[:]     = Percentage_IGBP_12
+            Percentage_IGBP_13_id[:]     = Percentage_IGBP_13
+            Percentage_IGBP_14_id[:]     = Percentage_IGBP_14
+            Percentage_IGBP_15_id[:]     = Percentage_IGBP_15
+            Percentage_IGBP_16_id[:]     = Percentage_IGBP_16
+            Percentage_IGBP_17_id[:]     = Percentage_IGBP_17
+            Percentage_IGBP_18_id[:]     = Percentage_IGBP_18
+
+            ##  Set global attributes
+            my_attrs = dict(title          = "Regridded ERA5 data with LIVAS lookup data",
+                            type           = ERA.type,
+                            season         = ERA.season,
+                            details        = ERA.details,
+                            data_date      = ERA.data_date,
+                            contacts       = cnf.OREO.contact_emails,
+                            creation       = format(datetime.now(timezone.utc)),
+                            user_host      = os.getlogin() + "@" + os.uname()[1],
+                            source_version = TRACE)
+            for name, value in my_attrs.items():
+                setattr(ds, name, value)
+
+        ##  Create a indipedednt group for each percentile  -------------------
+        Lg = ds.createGroup(f"LIVAS_p{aper}")
+
+        ##  need to recreate coords within the group
+        Lg.createDimension('CALIPSO_lev', len(Altitude))
+        Lg.createDimension('lat',         len(ERA_Latitude))
+        Lg.createDimension('lon',         len(ERA_Longitude))
+
+        LIVAS_Altitude_id         = Lg.createVariable('Altitude',                        'f4',                    ('CALIPSO_lev',), zlib=True)
+        LIVAS_a532nm_PD_id        = Lg.createVariable('Pure_Dust/LIVAS_PD_a532nm',        np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_a532nm_PD_SD_id     = Lg.createVariable('Pure_Dust/LIVAS_PD_a532nm_STD',    np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_b532nm_PD_id        = Lg.createVariable('Pure_Dust/LIVAS_PD_b532nm',        np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_b532nm_PD_SD_id     = Lg.createVariable('Pure_Dust/LIVAS_PD_b532nm_STD',    np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_PD_MC_id            = Lg.createVariable('Pure_Dust/LIVAS_PD_MC',            np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_PD_MC_SD_id         = Lg.createVariable('Pure_Dust/LIVAS_PD_MC_STD',        np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_PD_MC_Fine_id       = Lg.createVariable('Pure_Dust/LIVAS_PD_MC_Fine',       np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_PD_MC_Fine_SD_id    = Lg.createVariable('Pure_Dust/LIVAS_PD_MC_Fine_STD',   np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_PD_MC_Coarse_id     = Lg.createVariable('Pure_Dust/LIVAS_PD_MC_Coarse',     np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_PD_MC_Coarse_SD_id  = Lg.createVariable('Pure_Dust/LIVAS_PD_MC_Coarse_STD', np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
+        LIVAS_N_of_CF_Profiles_id = Lg.createVariable('Flags/Number_of_L2_CF_Profiles',   np.float64, ('lon','lat',), zlib=True)
+        # LIVAS_N_of_Profiles_id    = Lg.createVariable('Flags/Number_of_L2_Profiles',      np.float64, ('lon','lat',), zlib=True)
+        LIVAS_total_Profiles_id   = Lg.createVariable('Flags/Total_L2_Profiles_N',        np.float64, ('lon','lat',), zlib=True)
+        LIVAS_DOD_532nm_mean      = Lg.createVariable('Pure_Dust/DOD_532nm_mean',         np.float64, ('lon','lat',), zlib=True)
+        LIVAS_DOD_532nm_SD        = Lg.createVariable('Pure_Dust/DOD_532nm_STD',          np.float64, ('lon','lat',), zlib=True)
+
         LIVAS_Altitude_id.units         = 'm'
         LIVAS_a532nm_PD_id.units        = '1/m'       # changed altitude to meters
         LIVAS_a532nm_PD_SD_id.units     = '1/m'       # changed altitude to meters
         LIVAS_b532nm_PD_id.units        = '1/(m sr)'  # changed altitude to meters
         LIVAS_b532nm_PD_SD_id.units     = '1/(m sr)'  # changed altitude to meters
-        time.calendar                   = 'proleptic_gregorian'
-        time.units                      = 'seconds since 1970-01-01 00:00:00'  ## same as raw ERA5
-        time_span.units                 = 'month'
-
         LIVAS_PD_MC_id.units            = 'micrograms/m^3'
         LIVAS_PD_MC_SD_id.units         = 'micrograms/m^3'
         LIVAS_PD_MC_Fine_id.units       = 'micrograms/m^3'
         LIVAS_PD_MC_Fine_SD_id.units    = 'micrograms/m^3'
         LIVAS_PD_MC_Coarse_id.units     = 'micrograms/m^3'
         LIVAS_PD_MC_Coarse_SD_id.units  = 'micrograms/m^3'
-
         LIVAS_N_of_CF_Profiles_id.units = 'none'
-        LIVAS_N_of_Profiles_id.units    = 'none'
+        # LIVAS_N_of_Profiles_id.units    = 'none'
         LIVAS_DOD_532nm_mean.units      = 'none'
         LIVAS_DOD_532nm_SD.units        = 'none'
-
-        CALIPSO_Surface_Elevation_MEAN_mean.units = 'm'  # changed altitude to meters
-        CALIPSO_Surface_Elevation_MIN_mean.units  = 'm'  # changed altitude to meters
-        CALIPSO_Surface_Elevation_MEAN_SD.units   = 'm'  # changed altitude to meters
-        CALIPSO_Surface_Elevation_MIN_SD.units    = 'm'  # changed altitude to meters
-
-        Percentage_IGBP_1_id.units      = 'none'
-        Percentage_IGBP_2_id.units      = 'none'
-        Percentage_IGBP_3_id.units      = 'none'
-        Percentage_IGBP_4_id.units      = 'none'
-        Percentage_IGBP_5_id.units      = 'none'
-        Percentage_IGBP_6_id.units      = 'none'
-        Percentage_IGBP_7_id.units      = 'none'
-        Percentage_IGBP_8_id.units      = 'none'
-        Percentage_IGBP_9_id.units      = 'none'
-        Percentage_IGBP_10_id.units     = 'none'
-        Percentage_IGBP_11_id.units     = 'none'
-        Percentage_IGBP_12_id.units     = 'none'
-        Percentage_IGBP_13_id.units     = 'none'
-        Percentage_IGBP_14_id.units     = 'none'
-        Percentage_IGBP_15_id.units     = 'none'
-        Percentage_IGBP_16_id.units     = 'none'
-        Percentage_IGBP_17_id.units     = 'none'
-        Percentage_IGBP_18_id.units     = 'none'
-
-        lats_id.long_name                   = 'Latitude'
-        lons_id.long_name                   = 'Longitude'
-        ERA_Height_id.long_name             = 'Height'
-        ERA_height_low_id.long_name         = 'Height of lower cell boundary'
-        ERA_height_up_id.long_name          = 'Height of upper cell boundary'
-        ERA_U_id.long_name                  = 'U component of wind'
-        ERA_U_SD_id.long_name               = 'U component of wind SD'
-        ERA_V_id.long_name                  = 'V component of wind'
-        ERA_V_SD_id.long_name               = 'V component of wind SD'
-        time.long_name                      = 'Time'
-        time_span.long_name                 = 'The time span of the aggregated data'
 
         LIVAS_Altitude_id.long_name         = 'Height'
         LIVAS_a532nm_PD_id.long_name        = 'Pure-Dust Extinction Coefficient 532nm'
@@ -682,42 +817,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
         LIVAS_PD_MC_Coarse_SD_id.long_name  = 'Coarse mode Pure-Dust Mass Concentration - SD'
         LIVAS_DOD_532nm_mean.long_name      = 'Dust Optical Depth 532nm - mean'
         LIVAS_DOD_532nm_SD.long_name        = 'Dust Optical Depth 532nm - SD'
-
         LIVAS_N_of_CF_Profiles_id.long_name = 'Number of CALIPSO L2 5km Cloud Free Profiles'
-        LIVAS_N_of_Profiles_id.long_name    = 'Number of CALIPSO L2 5km Profiles'
+        # LIVAS_N_of_Profiles_id.long_name    = 'Number of CALIPSO L2 5km Profiles'
         LIVAS_total_Profiles_id.long_name   = 'Number of profiles in the ERA5 cell'
 
-        CALIPSO_Surface_Elevation_MEAN_mean.long_name = 'Mean of the Surface elevation MEAN'
-        CALIPSO_Surface_Elevation_MIN_mean.long_name  = 'Mean of the Surface elevation MIN'
-        CALIPSO_Surface_Elevation_MEAN_SD.long_name   = 'SD of the Surface elevation MEAN'
-        CALIPSO_Surface_Elevation_MIN_SD.long_name    = 'SD of the Surface elevation MIN'
-
-        Percentage_IGBP_1_id.long_name  = 'Evergreen-Needleleaf-Forest'
-        Percentage_IGBP_2_id.long_name  = 'Evergreen-Broadleaf-Forest'
-        Percentage_IGBP_3_id.long_name  = 'Deciduous-Needleleaf-Forest'
-        Percentage_IGBP_4_id.long_name  = 'Deciduous-Broadleaf-Forest'
-        Percentage_IGBP_5_id.long_name  = 'Mixed-Forest'
-        Percentage_IGBP_6_id.long_name  = 'Closed-Shrublands'
-        Percentage_IGBP_7_id.long_name  = 'Open-Shrubland (Desert)'
-        Percentage_IGBP_8_id.long_name  = 'Woody-Savanna'
-        Percentage_IGBP_9_id.long_name  = 'Savanna'
-        Percentage_IGBP_10_id.long_name = 'Grassland'
-        Percentage_IGBP_11_id.long_name = 'Wetland'
-        Percentage_IGBP_12_id.long_name = 'Cropland'
-        Percentage_IGBP_13_id.long_name = 'Urban'
-        Percentage_IGBP_14_id.long_name = 'Crop-Mosaic'
-        Percentage_IGBP_15_id.long_name = 'Permanent-Snow'
-        Percentage_IGBP_16_id.long_name = 'Barren/Desert'
-        Percentage_IGBP_17_id.long_name = 'Water'
-        Percentage_IGBP_18_id.long_name = 'Tundra'
-
-        ERA_Height_id.fill_value             = np.nan
-        ERA_height_low_id.fill_value         = np.nan
-        ERA_height_up_id.fill_value          = np.nan
-        ERA_U_id.fill_value                  = np.nan
-        ERA_U_SD_id.fill_value               = np.nan
-        ERA_V_id.fill_value                  = np.nan
-        ERA_V_SD_id.fill_value               = np.nan
         LIVAS_Altitude_id.fill_value         = np.nan
         LIVAS_a532nm_PD_id.fill_value        = np.nan
         LIVAS_a532nm_PD_SD_id.fill_value     = np.nan
@@ -726,61 +829,11 @@ for efid, ERA_file in enumerate(ERA_filenames):
         LIVAS_PD_MC_id.fill_value            = np.nan
         LIVAS_PD_MC_SD_id.fill_value         = np.nan
         LIVAS_N_of_CF_Profiles_id.fill_value = np.nan
-        LIVAS_N_of_Profiles_id.fill_value    = np.nan
+        # LIVAS_N_of_Profiles_id.fill_value    = np.nan
         LIVAS_DOD_532nm_mean.fill_value      = np.nan
         LIVAS_DOD_532nm_SD.fill_value        = np.nan
-        Percentage_IGBP_1_id.fill_value      = np.nan
-        Percentage_IGBP_2_id.fill_value      = np.nan
-        Percentage_IGBP_3_id.fill_value      = np.nan
-        Percentage_IGBP_4_id.fill_value      = np.nan
-        Percentage_IGBP_5_id.fill_value      = np.nan
-        Percentage_IGBP_6_id.fill_value      = np.nan
-        Percentage_IGBP_7_id.fill_value      = np.nan
-        Percentage_IGBP_8_id.fill_value      = np.nan
-        Percentage_IGBP_9_id.fill_value      = np.nan
-        Percentage_IGBP_10_id.fill_value     = np.nan
-        Percentage_IGBP_11_id.fill_value     = np.nan
-        Percentage_IGBP_12_id.fill_value     = np.nan
-        Percentage_IGBP_13_id.fill_value     = np.nan
-        Percentage_IGBP_14_id.fill_value     = np.nan
-        Percentage_IGBP_15_id.fill_value     = np.nan
-        Percentage_IGBP_16_id.fill_value     = np.nan
-        Percentage_IGBP_17_id.fill_value     = np.nan
-        Percentage_IGBP_18_id.fill_value     = np.nan
 
-        ##  Assign data to variables  ---------------------------------------------
-        lats_id[:]                   = ERA_Latitude
-        lons_id[:]                   = ERA_Longitude
-        time[:]                      = ERA.time
-        time_span[:]                 = ERA.time_span
-
-        if TEST:
-            ## test in a subdomain
-            ERA_Height_id[:]             = ERA.height.sel(latitude  = ERA_Latitude,
-                                                          longitude = ERA_Longitude)
-            ERA_U_id[:]                  = ERA[ U ].sel(latitude  = ERA_Latitude,
-                                                        longitude = ERA_Longitude)
-            ERA_U_SD_id[:]               = ERA.u_SD.sel(latitude  = ERA_Latitude,
-                                                        longitude = ERA_Longitude)
-            ERA_V_id[:]                  = ERA[ V ].sel(latitude  = ERA_Latitude,
-                                                        longitude = ERA_Longitude)
-            ERA_V_SD_id[:]               = ERA.v_SD.sel(latitude  = ERA_Latitude,
-                                                        longitude = ERA_Longitude)
-            ERA_height_low_id[:]         = ERA.height_low.sel(latitude  = ERA_Latitude,
-                                                              longitude = ERA_Longitude)
-            ERA_height_up_id[:]          = ERA.height_up.sel(latitude  = ERA_Latitude,
-                                                             longitude = ERA_Longitude)
-        else:
-            ## pass ERA5 ncdf as is
-            ERA_Height_id[:]             = ERA.height
-            ERA_U_id[:]                  = ERA[ U ]
-            ERA_U_SD_id[:]               = ERA.u_SD
-            ERA_V_id[:]                  = ERA[ V ]
-            ERA_V_SD_id[:]               = ERA.v_SD
-            ERA_height_low_id[:]         = ERA.height_low
-            ERA_height_up_id[:]          = ERA.height_up
-
-        ##  dust data
+        ##  Assign LIVAS data
         LIVAS_Altitude_id[:]         = Altitude
         LIVAS_a532nm_PD_id[:]        = Final_PD_a532nm
         LIVAS_a532nm_PD_SD_id[:]     = Final_PD_a532nm_SD
@@ -792,51 +845,11 @@ for efid, ERA_file in enumerate(ERA_filenames):
         LIVAS_PD_MC_Fine_SD_id[:]    = Final_PD_MC_Fine_SD
         LIVAS_PD_MC_Coarse_id[:]     = Final_PD_MC_Coarse
         LIVAS_PD_MC_Coarse_SD_id[:]  = Final_PD_MC_Coarse_SD
-
         LIVAS_N_of_CF_Profiles_id[:] = Final_Number_of_L2Profiles
-        LIVAS_N_of_Profiles_id[:]    = Final_Number_of_Profiles
+        # LIVAS_N_of_Profiles_id[:]    = Final_Number_of_Profiles
         LIVAS_DOD_532nm_mean[:]      = Final_LIVAS_PD_DOD_532nm
         LIVAS_DOD_532nm_SD[:]        = Final_LIVAS_PD_DOD_532nm_SD
         LIVAS_total_Profiles_id[:]   = Total_Number_of_Profiles
-
-        ##  CALIPSO data
-        CALIPSO_Surface_Elevation_MEAN_mean[:] = Final_Surface_Elevation_MEAN_mean
-        CALIPSO_Surface_Elevation_MIN_mean [:] = Final_Surface_Elevation_MIN_mean
-        CALIPSO_Surface_Elevation_MEAN_SD  [:] = Final_Surface_Elevation_MEAN_SD
-        CALIPSO_Surface_Elevation_MIN_SD   [:] = Final_Surface_Elevation_MIN_SD
-
-        ## flags coverage
-        Percentage_IGBP_1_id[:]      = Percentage_IGBP_1
-        Percentage_IGBP_2_id[:]      = Percentage_IGBP_2
-        Percentage_IGBP_3_id[:]      = Percentage_IGBP_3
-        Percentage_IGBP_4_id[:]      = Percentage_IGBP_4
-        Percentage_IGBP_5_id[:]      = Percentage_IGBP_5
-        Percentage_IGBP_6_id[:]      = Percentage_IGBP_6
-        Percentage_IGBP_7_id[:]      = Percentage_IGBP_7
-        Percentage_IGBP_8_id[:]      = Percentage_IGBP_8
-        Percentage_IGBP_9_id[:]      = Percentage_IGBP_9
-        Percentage_IGBP_10_id[:]     = Percentage_IGBP_10
-        Percentage_IGBP_11_id[:]     = Percentage_IGBP_11
-        Percentage_IGBP_12_id[:]     = Percentage_IGBP_12
-        Percentage_IGBP_13_id[:]     = Percentage_IGBP_13
-        Percentage_IGBP_14_id[:]     = Percentage_IGBP_14
-        Percentage_IGBP_15_id[:]     = Percentage_IGBP_15
-        Percentage_IGBP_16_id[:]     = Percentage_IGBP_16
-        Percentage_IGBP_17_id[:]     = Percentage_IGBP_17
-        Percentage_IGBP_18_id[:]     = Percentage_IGBP_18
-
-        ##  Set global attributes
-        my_attrs = dict(title          = "Regridded ERA5 data with LIVAS lookup data",
-                        type           = ERA.type,
-                        season         = ERA.season,
-                        details        = ERA.details,
-                        data_date      = ERA.data_date,
-                        contacts       = cnf.OREO.contact_emails,
-                        creation       = format(datetime.now(timezone.utc)),
-                        user_host      = os.getlogin() + "@" + os.uname()[1],
-                        source_version = TRACE)
-        for name, value in my_attrs.items():
-            setattr(ds, name, value)
 
         ds.close()
         print(f"Written: {fileout}")
