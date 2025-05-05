@@ -69,8 +69,6 @@ git push -f --tag
 git maintenance run --auto
 
 
-exit
-
 ##  MAIN SEQUENCE  -------------------------------------------------------------
 echo ""
 echo "****    $(date +"%F %T") $USER@$HOSTNAME    ****"
