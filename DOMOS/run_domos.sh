@@ -46,15 +46,36 @@ start_status() {
 # Python command in conda
 CONDA="conda run -n oreo --live-stream python"
 
+## ignore errors
+set +e
+## python immediate output
+export PYTHONUNBUFFERED=1
+
+## make a commit of some important components before run
+find . -type f \( \
+  -iname 'Step*.py' \
+  \) -print0 |
+  xargs -t -0 git add
+
+find ../run_profiles -type f \( \
+  -iname '*.yaml' \
+  \) -print0 |
+  xargs -t -0 git add
+
+## commit and push
+git commit -uno -a -m "Commit before execution $(date +'%F %R')"
+git push -f
+git push -f --tag
+git maintenance run --auto
+
+
+exit
 
 ##  MAIN SEQUENCE  -------------------------------------------------------------
 echo ""
 echo "****    $(date +"%F %T") $USER@$HOSTNAME    ****"
 echo ""
 
-## ignore errors
-set +e
-export PYTHONUNBUFFERED=1
 
 info "Get raw data from ERA5"
 ascript="./Step_00_get_ERA5_data.py"
