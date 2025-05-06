@@ -772,8 +772,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
         Lg.createDimension('lat', len(ERA_Latitude))
         Lg.createDimension('lon', len(ERA_Longitude))
         ##  Geo coordinate variables
-        lats_id           = Lg.createVariable('lat', 'f4', ('lat',))
-        lons_id           = Lg.createVariable('lon', 'f4', ('lon',))
+        lats_id           = Lg.createVariable('Latitude',  'f4', ('lat',))
+        lons_id           = Lg.createVariable('Longitude', 'f4', ('lon',))
         lats_id.units     = 'degrees_north'
         lons_id.units     = 'degrees_east'
         lats_id.long_name = 'Latitude'
