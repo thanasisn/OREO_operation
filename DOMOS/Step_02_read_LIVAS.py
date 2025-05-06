@@ -530,11 +530,11 @@ for efid, ERA_file in enumerate(ERA_filenames):
             #     sys.exit("Inconsistent coverage")
         ## END iteration on the whole ERA5 domain
 
-        ##  Saving dataset as NetCDF ----------------------------------------------
+        ##  Saving dataset as NetCDF ------------------------------------------
         ##  Have to remove existing file for this to work
         ds = nc.Dataset(fileout, 'a', format='NETCDF4')
 
-        ##  Store common data only one time  -----------------
+        ##  Store common data only one time  ----------------------------------
         if not "ERA5" in ds.groups:
 
             ##  Create global dimensions
@@ -768,16 +768,18 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ##  need to recreate coords within the group
         Lg.createDimension('CALIPSO_lev', len(Altitude))
 
-        ##  Geo coordinates
-        lats_id           = Lg.createDimension('lat', len(ERA_Latitude))
-        lons_id           = Lg.createDimension('lon', len(ERA_Longitude))
+        ##  Geo dimensions
+        Lg.createDimension('lat', len(ERA_Latitude))
+        Lg.createDimension('lon', len(ERA_Longitude))
+        ##  Geo coordinate variables
+        lats_id           = Lg.createVariable('lat', 'f4', ('lat',))
+        lons_id           = Lg.createVariable('lon', 'f4', ('lon',))
         lats_id.units     = 'degrees_north'
         lons_id.units     = 'degrees_east'
         lats_id.long_name = 'Latitude'
         lons_id.long_name = 'Longitude'
         lats_id[:]        = ERA_Latitude
         lons_id[:]        = ERA_Longitude
-
 
         LIVAS_Altitude_id         = Lg.createVariable('Altitude',                        'f4',                    ('CALIPSO_lev',), zlib=True)
         LIVAS_a532nm_PD_id        = Lg.createVariable('Pure_Dust/LIVAS_PD_a532nm',        np.float64, ('lon','lat','CALIPSO_lev',), zlib=True)
@@ -862,5 +864,5 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ds.close()
         print(f"Written: {fileout}")
 
-#  SCRIPT END  ---------------------------------------------------------------
+#  SCRIPT END  ----------------------------------------------------------------
 Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = TRACE)
