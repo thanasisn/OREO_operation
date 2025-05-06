@@ -53,6 +53,7 @@ SEASONAL = cnf.D1.Seasonal
 TEST = False
 TEST = cnf.mode.Test
 
+
 ##  Allow only one case to run at the time  ----------------------------------
 if SEASONAL == MONTHLY:
     print("Seasonal:", SEASONAL)
@@ -102,6 +103,7 @@ LIVAS_all_lons = np.arange(-179.5, 180)
 
 ##  Define percentile test  --------------------------------------------------
 percentiles = [ 95, 96, 97, 98, 99, 100 ]
+
 
 ##  Make sure we include all LIVAS point within the domain  ------------------
 if fl_East  >= LIVAS_all_lons.max() or \
@@ -161,8 +163,8 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ## create a subdomain for testing
         ERA_Longitude = ERA_Longitude.where(ERA_Longitude.longitude >= -2.5, drop = True)
         ERA_Latitude  = ERA_Latitude.where( ERA_Latitude.latitude   <=  25,  drop = True)
-        ERA_Longitude = ERA_Longitude[0:1]
-        ERA_Latitude  = ERA_Latitude [0:1]
+        ERA_Longitude = ERA_Longitude[0:2]
+        ERA_Latitude  = ERA_Latitude [0:2]
 
     ##  Have to remove existing file in order to create multiple groups  -----
     if os.path.exists(fileout):
@@ -252,7 +254,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
             comb = np.array(np.meshgrid(Llats, Llons)).T.reshape(-1, 2)
 
             ## !!! TEST do few of LIVAS files
-            # if TEST: comb = comb[0:4]
+            if TEST: comb = comb[0:5]
 
             ##  Read a LIVAS file  --------------------------------------------
             ec_c += 1                                                      # domain iteration
@@ -768,9 +770,10 @@ for efid, ERA_file in enumerate(ERA_filenames):
         ##  need to recreate coords within the group
         Lg.createDimension('CALIPSO_lev', len(Altitude))
 
-        ##  Geo dimensions
+        ##  Geo dimensions for group
         Lg.createDimension('lat', len(ERA_Latitude))
         Lg.createDimension('lon', len(ERA_Longitude))
+
         ##  Geo coordinate variables
         lats_id           = Lg.createVariable('Latitude',  'f4', ('lat',))
         lons_id           = Lg.createVariable('Longitude', 'f4', ('lon',))
@@ -863,6 +866,7 @@ for efid, ERA_file in enumerate(ERA_filenames):
 
         ds.close()
         print(f"Written: {fileout}")
+        sys.exit("DD")
 
 #  SCRIPT END  ----------------------------------------------------------------
 Ou.goodbye(cnf.LOGs.run, tic = tic, scriptname = __file__, version = TRACE)

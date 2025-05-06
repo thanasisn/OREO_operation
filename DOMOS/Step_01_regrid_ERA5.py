@@ -57,6 +57,9 @@ MONTHLY  = cnf.D1.Monthly
 SEASONAL = False
 SEASONAL = cnf.D1.Seasonal
 
+##  Reduce work for testing
+TEST = False
+TEST = cnf.mode.Test
 
 ##  Check destination folder exists  -----------------------------------------
 if not os.path.isdir(cnf.ERA5.path_regrid):
