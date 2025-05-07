@@ -19,4 +19,8 @@ UTC:       2025-05-07 06:50:27 +00:00
 - Step_01_regrid... needs a workaround for longitude 180 in order to have the same
   weight as the other cells
 
+## repo
+
+- should be made public and archived
+- continue as a new fork
 
